@@ -17,7 +17,9 @@ To load the dataset and clean, go in this order
             RIDE_ID_NUM — just a unique row ID, no analytical value
             SVC_GRADE_ID_NUM — service grade, not relevant to transfer logic
             TKT_TYP_CD — ticket type, not relevant to transfer logic
-    - Choose only card types student, adult, senior citizens (ignoring concession, child, staff passes as we are unable to do any sort of fare analysis. also to reduce the dataset size)
+    - Choose only card types student, adult, senior citizens (ignoring concession, child, staff passes as we are unable to do any sort of fare analysis
+      also to reduce the dataset size)
+    - Join the dataset with the respective mappings for convenience (can directly filter by mapped value instead of manually checking the code)
 
 ** Note that we are unable to save variables in duckDB table (SQL?) format, and refer to them across code files. Which is why in steps 1 and 2 I am cleaning in duckDB to reduce the dataset size, then in step 3 I will convert it back to a python dataframe to further process the data. 
 
