@@ -1,8 +1,6 @@
-# DuckDB
+# Hide database
+data.duckdb
 *.duckdb
-*.duckdb.wal
-
-# Data
 *.csv
 *.xlsx
 
