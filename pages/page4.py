@@ -1,5 +1,5 @@
 import dash
-from dash import dcc, html, Input, Output, callback
+from dash import dcc, html, Input, Output, callback, State, no_update
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
@@ -79,11 +79,41 @@ def get_placeholder_map_data():
 # TODO: Replace with real filtered commuter counts from backend.
 # Expected shape: DataFrame with columns [category, count]
 # category values: "In Window", "Out of Window"
-def get_placeholder_bar_data():
-    return pd.DataFrame({
-        "category": ["In Window", "Out of Window"],
-        "count":    [3200, 1800],
+def get_placeholder_bar_data(region=None):
+    df = pd.DataFrame({
+        "region": [
+            "North", "North",
+            "North-East", "North-East",
+            "East", "East",
+            "West", "West",
+            "Central", "Central",
+        ],
+        "category": [
+            "In Window", "Out of Window",
+            "In Window", "Out of Window",
+            "In Window", "Out of Window",
+            "In Window", "Out of Window",
+            "In Window", "Out of Window",
+        ],
+        "count": [
+            2800, 1300,
+            2600, 1400,
+            1200, 500,
+            1400, 800,
+            1800, 700,
+        ],
     })
+
+    if region and region != "All Regions":
+        df = df[df["region"] == region]
+    else:
+        df = df.groupby("category", as_index=False)["count"].sum()
+
+    order = ["In Window", "Out of Window"]
+    df["category"] = pd.Categorical(df["category"], categories=order, ordered=True)
+    df = df.sort_values("category")
+
+    return df
 
 # ── Figure builders ───────────────────────────────────────────────────────────
 
@@ -105,29 +135,79 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
     with open("data/singapore_map.geojson", "r") as f:
         sg_geojson = json.load(f)
 
-    fig = px.choropleth_mapbox(
-    df,
-    geojson=sg_geojson,
-    locations="region",
-    featureidkey="properties.REGION_N",
-    color="affected_commuters",
-    labels={"affected_commuters": "Affected commuters"},
-    color_continuous_scale = "Blues",
-    hover_name="region_label",
-    hover_data={
-        "affected_commuters": True
-    },
-    mapbox_style="carto-positron",
-    center={"lat": 1.3521, "lon": 103.8198},
-    zoom=10
-)
-    fig.update_traces(
-        hovertemplate=(
-        "<b>%{hovertext}</b><br>"
-        "Affected commuters: %{customdata[0]}<br>"
-        "<extra></extra>"
-    )
-    )
+    selected_region = None
+    if region and region != "All Regions":
+        selected_region = region
+
+    fig = go.Figure()
+
+    if selected_region is None:
+        fig = px.choropleth_mapbox(
+            df,
+            geojson=sg_geojson,
+            locations="region",
+            featureidkey="properties.REGION_N",
+            color="affected_commuters",
+            labels={"affected_commuters": "Affected commuters"},
+            color_continuous_scale=[
+                "#eaf2ff",
+                "#bfd6ff",
+                "#7faeff",
+                "#1a56db"
+            ],
+            hover_name="region_label",
+            hover_data={"affected_commuters": True},
+            mapbox_style="carto-positron",
+            center={"lat": 1.3521, "lon": 103.8198},
+            zoom=10
+        )
+
+        fig.update_traces(
+            hovertemplate=
+            "<b>%{hovertext}</b><br>"
+            "Affected commuters: %{z}<extra></extra>"
+        )
+
+    else:
+
+        df_selected = df[df["region_label"] == selected_region]
+        df_other = df[df["region_label"] != selected_region]
+
+        fig.add_trace(go.Choroplethmapbox(
+            geojson=sg_geojson,
+            locations=df_other["region"],
+            z=[1] * len(df_other),
+            featureidkey="properties.REGION_N",
+            colorscale=[[0, "#e5e7eb"], [1, "#e5e7eb"]],
+            showscale=False,
+            marker_line_color="#9ca3af",
+            marker_line_width=1,
+            customdata=df_other[["region_label", "affected_commuters"]].values,
+            hovertemplate=
+            "<b>%{customdata[0]}</b><br>"
+            "Affected commuters: %{customdata[1]}<extra></extra>"
+        ))
+
+        fig.add_trace(go.Choroplethmapbox(
+            geojson=sg_geojson,
+            locations=df_selected["region"],
+            z=df_selected["affected_commuters"],
+            featureidkey="properties.REGION_N",
+            colorscale=[
+        [0.0, "#eaf2ff"],
+        [0.33, "#bfd6ff"],
+        [0.66, "#7faeff"],
+        [1.0, "#1a56db"],
+    ],
+    zmin=df["affected_commuters"].min(),
+    zmax=df["affected_commuters"].max(),
+            showscale = False,
+            customdata=df_selected[["region_label", "affected_commuters"]].values,
+            hovertemplate=
+            "<b>%{customdata[0]}</b><br>"
+            "Affected commuters: %{customdata[1]}<extra></extra>"
+        ))
+
     fig.update_layout(
         mapbox=dict(
             style="carto-positron",
@@ -155,7 +235,8 @@ def build_bar_figure(region=None, time_of_day=None, delay_duration=None, transfe
     TODO: When backend is ready, replace get_placeholder_bar_data() with
           a real query filtered by (region, time_of_day, delay_duration, transfer_window).
     """
-    df = get_placeholder_bar_data()
+    df = get_placeholder_bar_data(region)
+    max_count = df["count"].max()
 
     fig = go.Figure([
         go.Bar(
@@ -165,17 +246,17 @@ def build_bar_figure(region=None, time_of_day=None, delay_duration=None, transfe
             text=df["count"],
             textposition="outside",
             textfont=dict(size=11, family=FONT_MONO),
+            cliponaxis = False,
         )
     ])
 
     fig.update_layout(
-        **{**PLOTLY_LAYOUT, "margin": dict(l=32, r=16, t=16, b=32)},
+        **{**PLOTLY_LAYOUT, "margin": dict(l=32, r=16, t=40, b=32)},
         xaxis=dict(**AXIS_STYLE),
-        yaxis=dict(**AXIS_STYLE, title="Commuters"),
+        yaxis=dict(**AXIS_STYLE, title="Commuters", range=[0, max_count * 1.18]),
         height=200,
     )
     return fig
-
 
 # ── Layout helpers ────────────────────────────────────
 
@@ -405,7 +486,6 @@ layout = html.Div([
     "margin":      "0 auto",
 })
 
-
 # ── Callbacks ─────────────────────────────────────────────────────────────────
 
 @callback(
@@ -417,12 +497,7 @@ layout = html.Div([
     Input("p4-transfer-window-slider", "value"),
 )
 def update_figures(region, time_of_day, delay_duration, transfer_window):
-    """
-    Updates both figures when any filter or slider changes.
-
-    TODO: When backend is ready, pass the filter values to your data
-          query functions and feed real DataFrames into the figure builders.
-    """
     map_fig = build_map_figure(region, time_of_day, delay_duration, transfer_window)
     bar_fig = build_bar_figure(region, time_of_day, delay_duration, transfer_window)
     return map_fig, bar_fig
+
