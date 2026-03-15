@@ -1,7 +1,9 @@
 import dash
 from dash import dcc, html, Input, Output, callback
 import plotly.graph_objects as go
+import plotly.express as px
 import pandas as pd
+import json
 
 dash.register_page(__name__, path="/page-4", name="Delay Simulation")
 
@@ -67,7 +69,7 @@ DELAY_DURATIONS = ["5 minutes", "10 minutes", "15 minutes"]
 # Expected shape: DataFrame with columns [region, affected_commuters, lat, lon]
 def get_placeholder_map_data():
     return pd.DataFrame({
-        "region":             ["North", "North-East", "East", "West", "Central"],
+        "region":             ["NORTH REGION", "NORTH-EAST REGION", "EAST REGION", "WEST REGION", "CENTRAL REGION"],
         "affected_commuters": [1200, 850, 960, 1100, 780],
         "lat":                [1.38, 1.36, 1.32, 1.34, 1.30],
         "lon":                [103.80, 103.87, 103.93, 103.75, 103.83],
@@ -83,7 +85,6 @@ def get_placeholder_bar_data():
         "count":    [3200, 1800],
     })
 
-
 # ── Figure builders ───────────────────────────────────────────────────────────
 
 def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfer_window=45):
@@ -98,22 +99,35 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
          each region by its affected_commuters count.
     """
     df = get_placeholder_map_data()
+    df["region_label"] = (
+        df["region"].str.replace(" REGION", "", regex=False).str.title()
+    )
+    with open("data/singapore_map.geojson", "r") as f:
+        sg_geojson = json.load(f)
 
-    fig = go.Figure(go.Scattermapbox(
-        lat=df["lat"],
-        lon=df["lon"],
-        mode="markers+text",
-        marker=dict(size=32, color=C["accent"], opacity=0.6),
-        text=df["region"],
-        textposition="top center",
-        customdata=df["affected_commuters"],
+    fig = px.choropleth_mapbox(
+    df,
+    geojson=sg_geojson,
+    locations="region",
+    featureidkey="properties.REGION_N",
+    color="affected_commuters",
+    labels={"affected_commuters": "Affected commuters"},
+    color_continuous_scale = "Blues",
+    hover_name="region_label",
+    hover_data={
+        "affected_commuters": True
+    },
+    mapbox_style="carto-positron",
+    center={"lat": 1.3521, "lon": 103.8198},
+    zoom=10
+)
+    fig.update_traces(
         hovertemplate=(
-            "<b>%{text}</b><br>"
-            "Affected commuters: %{customdata}<br>"
-            "<extra></extra>"
-        ),
-    ))
-
+        "<b>%{hovertext}</b><br>"
+        "Affected commuters: %{customdata[0]}<br>"
+        "<extra></extra>"
+    )
+    )
     fig.update_layout(
         mapbox=dict(
             style="carto-positron",
@@ -123,6 +137,13 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
         margin=dict(l=0, r=0, t=0, b=0),
         paper_bgcolor="rgba(0,0,0,0)",
         height=400,
+        hoverlabel=dict(
+    bgcolor="white",
+    font_size=16,
+    font_family="Arial",
+    font_color="#1f2937",
+    bordercolor="#d1d5db"
+)
     )
     return fig
 
