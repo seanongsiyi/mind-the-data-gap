@@ -1,5 +1,4 @@
 import dash
-<<<<<<< HEAD
 from dash import html
 
 dash.register_page(__name__,path="/page-1", name = "Analysis Page")
@@ -8,7 +7,7 @@ layout = html.Div([
     html.H1("This is Page 1"),
     html.P("Welcome to the side page content.")
 ])
-=======
+
 from dash import html, dcc, Input, Output, callback
 import plotly.graph_objects as go
 import pandas as pd
@@ -420,4 +419,3 @@ def update_histogram(commuter_filter, tod_filter):
 )
 def update_timeseries(selected_days):
     return build_timeseries(selected_days)
->>>>>>> 5935f954d240c7ace57594bab51b29d0f2dabecc
