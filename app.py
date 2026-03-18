@@ -119,6 +119,9 @@ def update_url(tab_value):
 def update_active_tab(pathname):
     return pathname
 
+<<<<<<< HEAD
+=======
 
+>>>>>>> 5935f954d240c7ace57594bab51b29d0f2dabecc
 if __name__ == "__main__":
     app.run(debug=True)

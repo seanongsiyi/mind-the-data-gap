@@ -3,6 +3,7 @@ data.duckdb
 *.duckdb
 *.csv
 *.xlsx
+*.pkl
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
