@@ -13,35 +13,16 @@ C = {
     "text":        "#111827",
     "secondary":   "#6b7280",
     "muted":       "#9ca3af",
+    "warning":     "#d97706",
+    "warning_soft":"#fffbeb",
+    "success":     "#0e9f6e",
+    "success_soft":"#f0fdf4",
+    "danger":      "#e02424",
+    "danger_soft": "#fff5f5",
 }
 
 FONT = "'Inter', 'Helvetica Neue', sans-serif"
 FONT_MONO = "'JetBrains Mono', 'Fira Mono', monospace"
-
-def stat_card(number, label):
-    return html.Div([
-        html.Div(number, style={
-            "fontSize":   "28px",
-            "fontWeight": "700",
-            "color":      C["accent"],
-            "fontFamily": FONT_MONO,
-            "lineHeight": "1",
-        }),
-        html.Div(label, style={
-            "fontSize":   "12px",
-            "color":      C["secondary"],
-            "marginTop":  "6px",
-            "fontFamily": FONT,
-            "lineHeight": "1.4",
-        }),
-    ], style={
-        "background":   C["surface"],
-        "border":       f"1px solid {C['border']}",
-        "borderRadius": "10px",
-        "padding":      "20px 24px",
-        "flex":         "1",
-        "minWidth":     "140px",
-    })
 
 
 def section_tag(text):
@@ -83,6 +64,77 @@ def team_pill(name, matric):
     })
 
 
+def rule_badge(text, color, bg):
+    return html.Span(text, style={
+        "fontSize":      "9px",
+        "fontWeight":    "600",
+        "letterSpacing": "0.06em",
+        "textTransform": "uppercase",
+        "color":         color,
+        "background":    bg,
+        "padding":       "2px 7px",
+        "borderRadius":  "4px",
+        "fontFamily":    FONT_MONO,
+        "whiteSpace":    "nowrap",
+        "flexShrink":    "0",
+    })
+
+
+def rule_row(number, text, badge_text, badge_color, badge_bg, note=None):
+    row_children = [
+        html.Div([
+            html.Span(f"{number:02d}", style={
+                "fontSize":    "11px",
+                "fontWeight":  "700",
+                "color":       C["muted"],
+                "fontFamily":  FONT_MONO,
+                "marginRight": "12px",
+                "flexShrink":  "0",
+            }),
+            html.Span(text, style={
+                "fontSize":   "13px",
+                "color":      C["secondary"],
+                "fontFamily": FONT,
+                "lineHeight": "1.5",
+                "flex":       "1",
+            }),
+        ], style={"display": "flex", "alignItems": "flex-start", "flex": "1"}),
+        rule_badge(badge_text, badge_color, badge_bg),
+    ]
+
+    rows = [html.Div(row_children, style={
+        "display":        "flex",
+        "alignItems":     "center",
+        "gap":            "12px",
+        "justifyContent": "space-between",
+    })]
+
+    if note:
+        rows.append(html.Div([
+            html.Span("↳ ", style={"color": C["muted"], "fontFamily": FONT_MONO}),
+            html.Span(note, style={
+                "fontSize":   "12px",
+                "color":      C["muted"],
+                "fontFamily": FONT,
+                "fontStyle":  "italic",
+                "lineHeight": "1.5",
+            }),
+        ], style={
+            "marginTop":   "6px",
+            "marginLeft":  "23px",
+            "paddingLeft": "12px",
+            "borderLeft":  f"2px solid {C['border']}",
+        }))
+
+    return html.Div(rows, style={
+        "padding":      "12px 14px",
+        "borderRadius": "6px",
+        "border":       f"1px solid {C['border']}",
+        "background":   C["bg"],
+        "marginBottom": "8px",
+    })
+
+
 layout = html.Div([
 
     html.Link(
@@ -101,12 +153,12 @@ layout = html.Div([
                 html.Br(),
                 html.Span("Singapore", style={"color": C["accent"]}),
             ], style={
-                "fontSize":    "36px",
-                "fontWeight":  "700",
-                "color":       C["text"],
-                "fontFamily":  FONT,
-                "margin":      "16px 0 12px",
-                "lineHeight":  "1.2",
+                "fontSize":   "36px",
+                "fontWeight": "700",
+                "color":      C["text"],
+                "fontFamily": FONT,
+                "margin":     "16px 0 12px",
+                "lineHeight": "1.2",
             }),
             html.P(
                 "Current transfer rules leave elderly and differently-abled commuters at a disadvantage. "
@@ -125,45 +177,53 @@ layout = html.Div([
         # Transfer window quick-facts
         html.Div([
             html.Div("Current Transfer Windows", style={
-                "fontSize":    "11px",
-                "fontWeight":  "600",
+                "fontSize":      "11px",
+                "fontWeight":    "600",
                 "letterSpacing": "0.08em",
                 "textTransform": "uppercase",
-                "color":       C["secondary"],
-                "fontFamily":  FONT_MONO,
-                "marginBottom": "12px",
+                "color":         C["secondary"],
+                "fontFamily":    FONT_MONO,
+                "marginBottom":  "12px",
             }),
             html.Div([
                 html.Div([
                     html.Div("45 min", style={
-                        "fontSize": "22px", "fontWeight": "700",
-                        "color": C["accent"], "fontFamily": FONT_MONO,
+                        "fontSize":   "22px",
+                        "fontWeight": "700",
+                        "color":      C["accent"],
+                        "fontFamily": FONT_MONO,
                     }),
                     html.Div("Train → Bus / Bus → Bus", style={
-                        "fontSize": "12px", "color": C["secondary"],
-                        "fontFamily": FONT, "marginTop": "2px",
+                        "fontSize":  "12px",
+                        "color":     C["secondary"],
+                        "fontFamily": FONT,
+                        "marginTop": "2px",
                     }),
                 ], style={
-                    "padding": "14px 18px",
-                    "background": C["accent_soft"],
-                    "borderRadius": "8px",
-                    "marginBottom": "8px",
-                    "borderLeft": f"3px solid {C['accent']}",
+                    "padding":       "14px 18px",
+                    "background":    C["accent_soft"],
+                    "borderRadius":  "8px",
+                    "marginBottom":  "8px",
+                    "borderLeft":    f"3px solid {C['accent']}",
                 }),
                 html.Div([
                     html.Div("15 min", style={
-                        "fontSize": "22px", "fontWeight": "700",
-                        "color": "#0e9f6e", "fontFamily": FONT_MONO,
+                        "fontSize":   "22px",
+                        "fontWeight": "700",
+                        "color":      C["success"],
+                        "fontFamily": FONT_MONO,
                     }),
                     html.Div("Train → Train", style={
-                        "fontSize": "12px", "color": C["secondary"],
-                        "fontFamily": FONT, "marginTop": "2px",
+                        "fontSize":  "12px",
+                        "color":     C["secondary"],
+                        "fontFamily": FONT,
+                        "marginTop": "2px",
                     }),
                 ], style={
-                    "padding": "14px 18px",
-                    "background": "#f0fdf4",
+                    "padding":      "14px 18px",
+                    "background":   C["success_soft"],
                     "borderRadius": "8px",
-                    "borderLeft": "3px solid #0e9f6e",
+                    "borderLeft":   f"3px solid {C['success']}",
                 }),
             ]),
         ], style={
@@ -175,23 +235,81 @@ layout = html.Div([
         }),
 
     ], style={
-        "display":     "flex",
-        "gap":         "40px",
-        "alignItems":  "flex-start",
-        "flexWrap":    "wrap",
+        "display":      "flex",
+        "gap":          "40px",
+        "alignItems":   "flex-start",
+        "flexWrap":     "wrap",
         "marginBottom": "32px",
     }),
 
-    # ── Stats row ─────────────────────────────────────────────────────────────
+    # ── Transfer Rules ────────────────────────────────────────────────────────
     html.Div([
-        stat_card("45 min", "Current max transfer\nwindow for bus transfers"),
-        stat_card("2 tiers", "Transfer rules across\ndifferent mode pairs"),
-        stat_card("9", "Team members across\nfront and back end"),
-        stat_card("Dynamic", "Proposed rule framework\nby demographic & region"),
+        html.Div([
+            section_tag("Transfer Rules"),
+            html.H2("Journey & Transfer Rules", style={
+                "fontSize":   "18px",
+                "fontWeight": "600",
+                "color":      C["text"],
+                "fontFamily": FONT,
+                "margin":     "12px 0 16px",
+            }),
+        ]),
+        rule_row(
+            1,
+            "Maximum duration between first and last boarding within a journey is 2 hours. "
+            "Card is rejected at fare gate if exceeded; $2 admin charge to exit at Passenger Service Centre. "
+            "Applies to all card types including Concession cardholders.",
+            "2 HR CAP",
+            C["danger"], C["danger_soft"],
+            note="Unmanned LRT stations: use intercom to contact Operations Control Centre for assistance.",
+        ),
+        rule_row(
+            2,
+            "A maximum of 5 transfers can be made within a single journey.",
+            "MAX 5 XFERS",
+            C["warning"], C["warning_soft"],
+        ),
+        rule_row(
+            3,
+            "Multiple train transfers are allowed with no additional boarding charges.",
+            "TRAIN FREE",
+            C["success"], C["success_soft"],
+        ),
+        rule_row(
+            4,
+            "Maximum 45 minutes before being charged for transfers between a train station and a bus, "
+            "or between different bus services.",
+            "45 MIN · BUS",
+            C["warning"], C["warning_soft"],
+        ),
+        rule_row(
+            5,
+            "Maximum 15 minutes before being charged for transfers between different train stations.",
+            "15 MIN · TRAIN",
+            C["accent"], C["accent_soft"],
+        ),
+        rule_row(
+            6,
+            "The current bus service must not be the same number as the immediately preceding bus service.",
+            "NO SAME BUS",
+            C["danger"], C["danger_soft"],
+        ),
+        rule_row(
+            7,
+            "No exit and re-entry at the same train station.",
+            "NO RE-ENTRY",
+            C["danger"], C["danger_soft"],
+            note=(
+                "Exceptions: Bukit Panjang, Newton, and Tampines MRT interchanges require tapping out "
+                "and back in when transferring between lines. Must be completed within 15 minutes or "
+                "treated as a new journey."
+            ),
+        ),
     ], style={
-        "display":      "flex",
-        "gap":          "12px",
-        "flexWrap":     "wrap",
+        "background":   C["surface"],
+        "border":       f"1px solid {C['border']}",
+        "borderRadius": "10px",
+        "padding":      "28px",
         "marginBottom": "28px",
     }),
 
