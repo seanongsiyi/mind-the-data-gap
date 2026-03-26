@@ -29,6 +29,8 @@ FONT_MONO = "'JetBrains Mono', 'Fira Mono', monospace"
 
 REGIONS = ["All Regions", "North", "North-East", "East", "West", "Central"]
 
+AGES = ["Youth", "Adult", "Senior"]
+
 TIMES_OF_DAY = [
     "Morning Peak (6am–9am)",
     "Off-Peak (9am–5pm)",
@@ -144,11 +146,12 @@ layout = html.Div([
 
                 html.Div([
                     section_label("Age"),
-                    dcc.Input(
+                    dcc.Dropdown(
                         id="sim-age",
-                        type="number",
-                        placeholder="Enter age",
-                        style={"width": "140px", "fontSize": "13px"},
+                        options = [{"label": a, "value": a} for a in AGES],
+                        value="Youth",
+                        clearable = False,
+                        style={"width": "180px", "fontSize": "13px"},
                     ),
                 ]),
 
@@ -168,7 +171,7 @@ layout = html.Div([
                     dcc.Dropdown(
                         id="sim-time",
                         options=[{"label": t, "value": t} for t in TIMES_OF_DAY],
-                        placeholder="Select time",
+                        value = "Morning Peak (6am–9am)",
                         style={"width": "220px", "fontSize": "13px"},
                     ),
                 ]),
@@ -235,6 +238,20 @@ layout = html.Div([
 
             ], style={"display": "flex", "gap": "20px"}),
 
+        html.Div([
+            section_label("Commuter Profile"),
+            html.Div(id="character-display", style={
+                "width": "200px", 
+                "height": "200px", 
+                "display": "flex", 
+                "alignItems": "center", 
+                "justifyContent": "center",
+                "background": "#fff",
+                "borderRadius": "12px",
+                "border": f"1px solid {C['border']}"
+            })
+        ], style={"marginLeft": "auto"}),
+
         ],
     ),
 
@@ -252,6 +269,7 @@ layout = html.Div([
 @callback(
     Output("sim-rules", "children"),
     Output("sim-chart", "figure"),
+    Output("character-display","children"),
     Input("sim-submit", "n_clicks"),
     State("sim-age", "value"),
     State("sim-region", "value"),
@@ -265,8 +283,20 @@ def update_simulation(n_clicks, age, region, time):
 
     rules = []
 
+    CHAR_MAP = {
+    "senior": "/assets/giveway_glenda.png",
+    "peak":   "/assets/movein_martin.png",
+    "default": "/assets/standup_stacey.png"
+    }
+    if age == "Youth":
+        img_path = CHAR_MAP["default"]
+    elif age == "Adult":
+        img_path = CHAR_MAP["peak"]
+    else:
+        img_path = CHAR_MAP["senior"]
+    char_img = html.Img(src=img_path, style={"width": "150px", "height": "180px"})
     # ── Rule logic (aligned with project framing)
-    if age >= 65:
+    if age == "Senior":
         rules.append("Extend transfer window to 60 minutes for elderly commuters")
 
     if region != "Central":
@@ -278,9 +308,11 @@ def update_simulation(n_clicks, age, region, time):
         rules.append("Extend transfer window during off-peak hours")
 
     # ── Cost-benefit logic (placeholder)
-    cost = 30 + (age * 0.1)
+    age_dict = {"Youth":2,"Adult":1,"Senior":5}
+    age_cost = age_dict[age]
+    cost = 30 + (age_cost * 0.1)
     benefit = 50 + (10 if "Off-Peak" in time else -5)
 
     fig = build_cost_benefit_figure(cost, benefit)
 
-    return [html.Li(r) for r in rules], fig
+    return [html.Li(r) for r in rules], fig, char_img
