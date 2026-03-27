@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
 import json
+from pathlib import Path
 
 dash.register_page(__name__, path="/page-4", name="Delay Simulation")
 
@@ -50,6 +51,8 @@ AXIS_STYLE = dict(
 # PLACEHOLDER DATA
 # ─────────────────────────────────────────────
 
+PLANNING_AREAS_GEOJSON_PATH = Path("data/singapore_planning_areas.geojson")
+
 # TODO: Replace with actual region list from backend
 REGIONS = ["All Regions", "North", "North-East", "East", "West", "Central"]
 
@@ -65,49 +68,73 @@ TIMES_OF_DAY = [
 DELAY_DURATIONS = ["5 minutes", "10 minutes", "15 minutes"]
 
 
+def load_planning_area_geojson():
+    with open(PLANNING_AREAS_GEOJSON_PATH, "r") as f:
+        return json.load(f)
+
+
+def get_planning_area_metadata():
+    sg_geojson = load_planning_area_geojson()
+    rows = []
+
+    for feature in sg_geojson["features"]:
+        props = feature["properties"]
+        region = props["REGION_N"].replace(" REGION", "").title()
+        planning_area_raw = props["PLN_AREA_N"]
+        rows.append(
+            {
+                "region": region,
+                "planning_area_raw": planning_area_raw,
+                "planning_area": planning_area_raw.title(),
+            }
+        )
+
+    return pd.DataFrame(rows).drop_duplicates().sort_values("planning_area")
+
+
+def get_planning_areas_for_region(region):
+    """Get list of planning areas for a given region."""
+    meta = get_planning_area_metadata()
+    if region and region != "All Regions":
+        meta = meta[meta["region"] == region]
+
+    return ["All Planning Areas"] + meta["planning_area"].tolist()
+
+
 # TODO: Replace with real filtered commuter data from backend.
-# Expected shape: DataFrame with columns [region, affected_commuters, lat, lon]
-def get_placeholder_map_data():
-    return pd.DataFrame({
-        "region":             ["NORTH REGION", "NORTH-EAST REGION", "EAST REGION", "WEST REGION", "CENTRAL REGION"],
-        "affected_commuters": [1200, 850, 960, 1100, 780],
-        "lat":                [1.38, 1.36, 1.32, 1.34, 1.30],
-        "lon":                [103.80, 103.87, 103.93, 103.75, 103.83],
-    })
+# Expected shape: DataFrame with columns [region, planning_area, affected_commuters]
+def get_placeholder_map_data(region=None, planning_area=None):
+    meta = get_planning_area_metadata().copy()
+
+    # Deterministic synthetic values so the demo remains stable across refreshes.
+    meta["affected_commuters"] = meta["planning_area_raw"].apply(
+        lambda x: 400 + (sum(ord(ch) for ch in x) % 1400)
+    )
+
+    if region and region != "All Regions":
+        meta = meta[meta["region"] == region]
+
+    if planning_area and planning_area != "All Planning Areas":
+        meta = meta[meta["planning_area"] == planning_area]
+
+    return meta
 
 
 # TODO: Replace with real filtered commuter counts from backend.
 # Expected shape: DataFrame with columns [category, count]
 # category values: "In Window", "Out of Window"
-def get_placeholder_bar_data(region=None):
-    df = pd.DataFrame({
-        "region": [
-            "North", "North",
-            "North-East", "North-East",
-            "East", "East",
-            "West", "West",
-            "Central", "Central",
-        ],
-        "category": [
-            "In Window", "Out of Window",
-            "In Window", "Out of Window",
-            "In Window", "Out of Window",
-            "In Window", "Out of Window",
-            "In Window", "Out of Window",
-        ],
-        "count": [
-            2800, 1300,
-            2600, 1400,
-            1200, 500,
-            1400, 800,
-            1800, 700,
-        ],
-    })
+def get_placeholder_bar_data(region=None, planning_area=None):
+    source = get_placeholder_map_data(region, planning_area)
+    total = int(source["affected_commuters"].sum()) if not source.empty else 0
+    in_window = int(total * 0.68)
+    out_of_window = total - in_window
 
-    if region and region != "All Regions":
-        df = df[df["region"] == region]
-    else:
-        df = df.groupby("category", as_index=False)["count"].sum()
+    df = pd.DataFrame(
+        {
+            "category": ["In Window", "Out of Window"],
+            "count": [in_window, out_of_window],
+        }
+    )
 
     order = ["In Window", "Out of Window"]
     df["category"] = pd.Categorical(df["category"], categories=order, ordered=True)
@@ -117,36 +144,34 @@ def get_placeholder_bar_data(region=None):
 
 # ── Figure builders ───────────────────────────────────────────────────────────
 
-def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfer_window=45):
+def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfer_window=45, planning_area=None):
     """
     Builds the Singapore map figure.
 
     TODO: When backend is ready:
-      1. Query filtered commuter data using (region, time_of_day, delay_duration, transfer_window)
-      2. Load real Singapore region GeoJSON from:
-         https://data.gov.sg/dataset/master-plan-2019-region-boundary-no-sea
-      3. Switch from Scattermapbox to px.choropleth_mapbox, colouring
-         each region by its affected_commuters count.
+      1. Query filtered commuter data using (region, time_of_day, delay_duration, transfer_window, planning_area)
+      2. Query filtered commuter data by planning area and join on PLN_AREA_N.
+      3. Replace synthetic values with actual affected commuter counts.
     """
-    df = get_placeholder_map_data()
-    df["region_label"] = (
-        df["region"].str.replace(" REGION", "", regex=False).str.title()
-    )
-    with open("data/singapore_map.geojson", "r") as f:
-        sg_geojson = json.load(f)
+    sg_geojson = load_planning_area_geojson()
+    df_all = get_placeholder_map_data()
+    df_selected = get_placeholder_map_data(region, planning_area)
 
-    selected_region = None
-    if region and region != "All Regions":
-        selected_region = region
+    if df_selected.empty:
+        df_selected = df_all.copy()
+
+    has_filter = (region and region != "All Regions") or (
+        planning_area and planning_area != "All Planning Areas"
+    )
 
     fig = go.Figure()
 
-    if selected_region is None:
+    if not has_filter:
         fig = px.choropleth_mapbox(
-            df,
+            df_all,
             geojson=sg_geojson,
-            locations="region",
-            featureidkey="properties.REGION_N",
+            locations="planning_area_raw",
+            featureidkey="properties.PLN_AREA_N",
             color="affected_commuters",
             labels={"affected_commuters": "Affected commuters"},
             color_continuous_scale=[
@@ -155,87 +180,113 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
                 "#7faeff",
                 "#1a56db"
             ],
-            hover_name="region_label",
-            hover_data={"affected_commuters": True},
             mapbox_style="carto-positron",
             center={"lat": 1.3521, "lon": 103.8198},
-            zoom=10
+            zoom=9.7
+        )
+        fig.update_traces(
+            marker_line_width=0.5,
+            marker_line_color="grey",
+            showscale=False,
         )
 
         fig.update_traces(
-            hovertemplate=
-            "<b>%{hovertext}</b><br>"
-            "Affected commuters: %{z}<extra></extra>"
+            customdata=df_all[["planning_area", "region", "affected_commuters"]].values,
+            hovertemplate=(
+                "<b>%{customdata[0]}</b><br>"
+                "Region: %{customdata[1]}<br>"
+                "Affected commuters: %{customdata[2]}<extra></extra>"
+            ),
+            marker_line_width=0.5,
+            marker_line_color="grey",
         )
 
     else:
+        selected_areas = set(df_selected["planning_area_raw"])
+        df_other = df_all[~df_all["planning_area_raw"].isin(selected_areas)]
 
-        df_selected = df[df["region_label"] == selected_region]
-        df_other = df[df["region_label"] != selected_region]
+        if not df_other.empty:
+            fig.add_trace(
+                go.Choroplethmapbox(
+                    geojson=sg_geojson,
+                    locations=df_other["planning_area_raw"],
+                    z=[1] * len(df_other),
+                    featureidkey="properties.PLN_AREA_N",
+                    colorscale=[[0, "#e5e7eb"], [1, "#e5e7eb"]],
+                    showscale=False,
+                    marker_line_width=0.5,
+                    marker_line_color="grey",
+                    customdata=df_other[["planning_area", "region", "affected_commuters"]].values,
+                    hovertemplate=(
+                        "<b>%{customdata[0]}</b><br>"
+                        "Region: %{customdata[1]}<br>"
+                        "Affected commuters: %{customdata[2]}<extra></extra>"
+                    ),
+                )
+            )
 
-        fig.add_trace(go.Choroplethmapbox(
-            geojson=sg_geojson,
-            locations=df_other["region"],
-            z=[1] * len(df_other),
-            featureidkey="properties.REGION_N",
-            colorscale=[[0, "#e5e7eb"], [1, "#e5e7eb"]],
-            showscale=False,
-            marker_line_color="#9ca3af",
-            marker_line_width=1,
-            customdata=df_other[["region_label", "affected_commuters"]].values,
+        fig.add_trace(
+            go.Choroplethmapbox(
+                geojson=sg_geojson,
+                locations=df_selected["planning_area_raw"],
+                z=df_selected["affected_commuters"],
+                featureidkey="properties.PLN_AREA_N",
+                colorscale=[
+                    [0.0, "#eaf2ff"],
+                    [0.33, "#bfd6ff"],
+                    [0.66, "#7faeff"],
+                    [1.0, "#1a56db"],
+                ],
+                zmin=df_all["affected_commuters"].min(),
+                zmax=df_all["affected_commuters"].max(),
+                showscale=False,
+                marker_line_width=0.5,
+                marker_line_color="grey",
+                customdata=df_selected[["planning_area", "region", "affected_commuters"]].values,
+                hovertemplate=(
+                    "<b>%{customdata[0]}</b><br>"
+                    "Region: %{customdata[1]}<br>"
+                    "Affected commuters: %{customdata[2]}<extra></extra>"
+                ),
+            )
+        )
+
+    if not has_filter:
+        fig.update_traces(
             hovertemplate=
             "<b>%{customdata[0]}</b><br>"
-            "Affected commuters: %{customdata[1]}<extra></extra>"
-        ))
-
-        fig.add_trace(go.Choroplethmapbox(
-            geojson=sg_geojson,
-            locations=df_selected["region"],
-            z=df_selected["affected_commuters"],
-            featureidkey="properties.REGION_N",
-            colorscale=[
-        [0.0, "#eaf2ff"],
-        [0.33, "#bfd6ff"],
-        [0.66, "#7faeff"],
-        [1.0, "#1a56db"],
-    ],
-    zmin=df["affected_commuters"].min(),
-    zmax=df["affected_commuters"].max(),
-            showscale = False,
-            customdata=df_selected[["region_label", "affected_commuters"]].values,
-            hovertemplate=
-            "<b>%{customdata[0]}</b><br>"
-            "Affected commuters: %{customdata[1]}<extra></extra>"
-        ))
+            "Region: %{customdata[1]}<br>"
+            "Affected commuters: %{customdata[2]}<extra></extra>"
+        )
 
     fig.update_layout(
         mapbox=dict(
             style="carto-positron",
             center={"lat": 1.3521, "lon": 103.8198},
-            zoom=10,
+            zoom=9.7,
         ),
         margin=dict(l=0, r=0, t=0, b=0),
         paper_bgcolor="rgba(0,0,0,0)",
         height=400,
         hoverlabel=dict(
-    bgcolor="white",
-    font_size=16,
-    font_family="Arial",
-    font_color="#1f2937",
-    bordercolor="#d1d5db"
-)
+            bgcolor="white",
+            font_size=16,
+            font_family="Arial",
+            font_color="#1f2937",
+            bordercolor="#d1d5db"
+        )
     )
     return fig
 
 
-def build_bar_figure(region=None, time_of_day=None, delay_duration=None, transfer_window=45):
+def build_bar_figure(region=None, time_of_day=None, delay_duration=None, transfer_window=45, planning_area=None):
     """
     Builds the In Window vs Out of Window bar chart.
 
     TODO: When backend is ready, replace get_placeholder_bar_data() with
-          a real query filtered by (region, time_of_day, delay_duration, transfer_window).
+          a real query filtered by (region, time_of_day, delay_duration, transfer_window, planning_area).
     """
-    df = get_placeholder_bar_data(region)
+    df = get_placeholder_bar_data(region, planning_area)
     max_count = df["count"].max()
 
     fig = go.Figure([
@@ -370,6 +421,16 @@ layout = html.Div([
                     ),
                 ]),
                 html.Div([
+                    section_label("Planning Area (Town)"),
+                    dcc.Dropdown(
+                        id="p4-planning-area-dropdown",
+                        options=[],
+                        value="All Planning Areas",
+                        clearable=False,
+                        style={"fontSize": "13px", "width": "200px"},
+                    ),
+                ]),
+                html.Div([
                     section_label("Time of Day"),
                     dcc.Dropdown(
                         id="p4-time-dropdown",
@@ -489,15 +550,28 @@ layout = html.Div([
 # ── Callbacks ─────────────────────────────────────────────────────────────────
 
 @callback(
+    Output("p4-planning-area-dropdown", "options"),
+    Output("p4-planning-area-dropdown", "value"),
+    Input("p4-region-dropdown", "value"),
+)
+def update_planning_areas(region):
+    """Update planning area options based on selected region."""
+    planning_areas = get_planning_areas_for_region(region)
+    options = [{"label": pa, "value": pa} for pa in planning_areas]
+    return options, "All Planning Areas"
+
+
+@callback(
     Output("p4-map-figure", "figure"),
     Output("p4-bar-figure", "figure"),
     Input("p4-region-dropdown", "value"),
+    Input("p4-planning-area-dropdown", "value"),
     Input("p4-time-dropdown", "value"),
     Input("p4-delay-dropdown", "value"),
     Input("p4-transfer-window-slider", "value"),
 )
-def update_figures(region, time_of_day, delay_duration, transfer_window):
-    map_fig = build_map_figure(region, time_of_day, delay_duration, transfer_window)
-    bar_fig = build_bar_figure(region, time_of_day, delay_duration, transfer_window)
+def update_figures(region, planning_area, time_of_day, delay_duration, transfer_window):
+    map_fig = build_map_figure(region, time_of_day, delay_duration, transfer_window, planning_area)
+    bar_fig = build_bar_figure(region, time_of_day, delay_duration, transfer_window, planning_area)
     return map_fig, bar_fig
 
