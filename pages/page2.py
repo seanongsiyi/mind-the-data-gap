@@ -182,7 +182,12 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
             ],
             mapbox_style="carto-positron",
             center={"lat": 1.3521, "lon": 103.8198},
-            zoom=10
+            zoom=9.7
+        )
+        fig.update_traces(
+            marker_line_width=0.5,
+            marker_line_color="grey",
+            showscale=False,
         )
 
         fig.update_traces(
@@ -192,6 +197,8 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
                 "Region: %{customdata[1]}<br>"
                 "Affected commuters: %{customdata[2]}<extra></extra>"
             ),
+            marker_line_width=0.5,
+            marker_line_color="grey",
         )
 
     else:
@@ -207,8 +214,8 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
                     featureidkey="properties.PLN_AREA_N",
                     colorscale=[[0, "#e5e7eb"], [1, "#e5e7eb"]],
                     showscale=False,
-                    marker_line_color="#9ca3af",
-                    marker_line_width=0.8,
+                    marker_line_width=0.5,
+                    marker_line_color="grey",
                     customdata=df_other[["planning_area", "region", "affected_commuters"]].values,
                     hovertemplate=(
                         "<b>%{customdata[0]}</b><br>"
@@ -233,8 +240,8 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
                 zmin=df_all["affected_commuters"].min(),
                 zmax=df_all["affected_commuters"].max(),
                 showscale=False,
-                marker_line_color="#6b7280",
-                marker_line_width=1.2,
+                marker_line_width=0.5,
+                marker_line_color="grey",
                 customdata=df_selected[["planning_area", "region", "affected_commuters"]].values,
                 hovertemplate=(
                     "<b>%{customdata[0]}</b><br>"
@@ -256,18 +263,18 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
         mapbox=dict(
             style="carto-positron",
             center={"lat": 1.3521, "lon": 103.8198},
-            zoom=10,
+            zoom=9.7,
         ),
         margin=dict(l=0, r=0, t=0, b=0),
         paper_bgcolor="rgba(0,0,0,0)",
         height=400,
         hoverlabel=dict(
-    bgcolor="white",
-    font_size=16,
-    font_family="Arial",
-    font_color="#1f2937",
-    bordercolor="#d1d5db"
-)
+            bgcolor="white",
+            font_size=16,
+            font_family="Arial",
+            font_color="#1f2937",
+            bordercolor="#d1d5db"
+        )
     )
     return fig
 
