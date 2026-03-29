@@ -150,6 +150,61 @@ def get_trf_temporal_pattern(patron=None):
 
     return df.reset_index(drop=True)
 
+## Misclassification Functions
+
+def get_misclassified_transfers_region(region=None):
+    """
+    Returns number of actual transfers that were predicted to be new journeys (split error/'false negative') grouped by destination region
+    """
+    df = pd.read_csv(os.path.join(_data_dir, 'fn_by_region.csv'))
+
+    if region is not None:
+        df = df[df['dest_region'] == region]
+    
+    return df.reset_index(drop=True)
+
+def get_misclassified_journeys_region(region=None):
+    """
+    Returns number of actual new journeys that were predicted to be transfers (merge error/'false positive') grouped by destination region
+    """
+    df = pd.read_csv(os.path.join(_data_dir, 'fp_by_region.csv'))
+
+    if region is not None:
+        df = df[df['dest_region'] == region]
+    
+    return df.reset_index(drop=True)
+
+def get_misclassified_transfers_pairs(origin=None, next=None):
+    """
+    Returns exact station/stop transfer pair and the corresponding number of actual transfers that were predicted to be new journeys 
+    (split error/'false negative')
+    """
+    df = pd.read_csv(os.path.join(_data_dir, 'fn_pair.csv'))
+
+    if origin is not None:
+        df = df[df['ORIG_STATION_NAME'] == origin]
+    
+    if next is not None:
+        df = df[df['next_orig_station'] == next]
+    
+    return df.reset_index(drop=True)
+
+def get_misclassified_journeys_pairs(origin=None, next=None):
+    """
+    Returns exact station/stop transfer pair and the corresponding number of actual new journeys that were predicted to be transfers 
+    (merge error/'false positive')
+    """
+    df = pd.read_csv(os.path.join(_data_dir, 'fn_pair.csv'))
+
+    if origin is not None:
+        df = df[df['ORIG_STATION_NAME'] == origin]
+    
+    if next is not None:
+        df = df[df['next_orig_station'] == next]
+    
+    return df.reset_index(drop=True)
+
+## Delay Simulator Functions
 
 def query_delay_sim(
     delay_mins: int,
