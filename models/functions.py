@@ -2,8 +2,11 @@ import os
 import pandas as pd
 
 _base_dir = os.path.dirname(os.path.abspath(__file__)) # This line is for py file
-_data_dir = os.path.join(_base_dir, '..', 'data')
+_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data')
  
+
+ ## Welfare functions
+
 def get_welfare_summary(patron, window, spec):
     """
     Look up welfare results for a given patron category, transfer window, and classifier spec.
@@ -86,4 +89,220 @@ def get_marginal_summary(patron, spec, window_from):
         'newly_linked_n':     row['newly_linked_n'],       # total pairs newly linked by the larger window
         'marginal_benefit_n': row['marginal_benefit_n'],   # newly linked where classifier says transfer → legitimate rescue
         'marginal_cost_n':    row['marginal_cost_n'],      # newly linked where classifier says new journey → illegitimate link
+    }
+
+## Visualisation Suite functions
+# Frontend query functions (read from pre-computed CSVs)
+
+def get_trf_time_distribution(age_group=None, hour=None):
+    """
+    Returns avg transfer time distribution by age group and hour of day.
+
+    Inputs:
+    - age_group: None (all), or one of '7-19', '20-59', '60+'
+    - hour:      None (all), or int 0-23
+
+    Returns: DataFrame with [age_group, hour_of_day, avg_transfer_time_mins]
+    """
+    df = pd.read_csv(os.path.join(_data_dir, 'trf_time_distribution.csv'))
+
+    if age_group is not None:
+        df = df[df['age_group'] == age_group]
+    if hour is not None:
+        df = df[df['hour_of_day'] == hour]
+
+    return df.reset_index(drop=True)
+
+
+def get_trf_pair_distribution(orig_station=None, dest_station=None):
+    """
+    Returns top transfer station pairs by count.
+
+    Inputs:
+    - orig_station: None (all), or filter by origin station name string
+    - dest_station: None (all), or filter by destination station name string
+
+    Returns: DataFrame with [ORIG_STATION_NAME, DEST_STATION_NAME, count]
+    """
+    df = pd.read_csv(os.path.join(_data_dir, 'trf_pair_dist.csv'))
+
+    if orig_station is not None:
+        df = df[df['ORIG_STATION_NAME'] == orig_station]
+    if dest_station is not None:
+        df = df[df['DEST_STATION_NAME'] == dest_station]
+
+    return df.reset_index(drop=True)
+
+
+def get_trf_temporal_pattern(patron=None):
+    """
+    Returns avg transfer time by hour of day for the temporal pattern chart.
+
+    Inputs:
+    - patron: None (all), or one of 'Adult', 'Student', 'Senior Citizen'
+
+    Returns: DataFrame with [hour_of_day, PATRON_CATG_DESC_TXT, avg_transfer_time_mins]
+    """
+    df = pd.read_csv(os.path.join(_data_dir, 'trf_pattern_distribution.csv'))
+
+    if patron is not None:
+        df = df[df['PATRON_CATG_DESC_TXT'] == patron]
+
+    return df.reset_index(drop=True)
+
+## Misclassification Functions
+
+def get_misclassified_transfers_region(region=None):
+    """
+    Returns number of actual transfers that were predicted to be new journeys (split error/'false negative') grouped by destination region
+    """
+    df = pd.read_csv(os.path.join(_data_dir, 'fn_by_region.csv'))
+
+    if region is not None:
+        df = df[df['dest_region'] == region]
+    
+    return df.reset_index(drop=True)
+
+def get_misclassified_journeys_region(region=None):
+    """
+    Returns number of actual new journeys that were predicted to be transfers (merge error/'false positive') grouped by destination region
+    """
+    df = pd.read_csv(os.path.join(_data_dir, 'fp_by_region.csv'))
+
+    if region is not None:
+        df = df[df['dest_region'] == region]
+    
+    return df.reset_index(drop=True)
+
+def get_misclassified_transfers_pairs(origin=None, next=None):
+    """
+    Returns exact station/stop transfer pair and the corresponding number of actual transfers that were predicted to be new journeys 
+    (split error/'false negative')
+    """
+    df = pd.read_csv(os.path.join(_data_dir, 'fn_pair.csv'))
+
+    if origin is not None:
+        df = df[df['ORIG_STATION_NAME'] == origin]
+    
+    if next is not None:
+        df = df[df['next_orig_station'] == next]
+    
+    return df.reset_index(drop=True)
+
+def get_misclassified_journeys_pairs(origin=None, next=None):
+    """
+    Returns exact station/stop transfer pair and the corresponding number of actual new journeys that were predicted to be transfers 
+    (merge error/'false positive')
+    """
+    df = pd.read_csv(os.path.join(_data_dir, 'fn_pair.csv'))
+
+    if origin is not None:
+        df = df[df['ORIG_STATION_NAME'] == origin]
+    
+    if next is not None:
+        df = df[df['next_orig_station'] == next]
+    
+    return df.reset_index(drop=True)
+
+## Delay Simulator Functions
+
+def query_delay_sim(
+    delay_mins: int,
+    bus_window: int,
+    classifier_type: str,   # 'baseline', 'lenient', 'strict'
+    patron: str = 'all',
+    df: pd.DataFrame = None
+):
+    """
+    Returns summary + breakdowns for delay simulation, with journeys computed per patron.
+
+    Parameters
+    ----------
+    delay_mins : int
+        Delay in minutes (0,5,10,15,20)
+    bus_window : int
+        Transfer window in minutes (35,40,...,60)
+    classifier_type : str
+        'baseline', 'lenient', 'strict'
+    patron : str
+        'all', 'Student', 'Adult', 'Senior Citizen'
+    df : pd.DataFrame
+        The precomputed results CSV (final_df)
+
+    Returns
+    -------
+    dict
+    """
+    if df is None:
+        raise ValueError("Please provide a DataFrame with precomputed results (final_df)")
+
+    valid_delays = [0, 5, 10, 15, 20]
+    valid_windows = list(range(35, 65, 5))
+    valid_specs = ['baseline', 'lenient', 'strict']
+
+    if delay_mins not in valid_delays:
+        raise ValueError(f"delay_mins must be one of {valid_delays}")
+    if bus_window not in valid_windows:
+        raise ValueError(f"bus_window must be one of {valid_windows}")
+    if classifier_type not in valid_specs:
+        raise ValueError(f"classifier_type must be one of {valid_specs}")
+
+    sub = df[
+        (df['delay_mins'] == delay_mins) &
+        (df['bus_window_mins'] == bus_window) &
+        (df['spec'] == classifier_type)
+    ].copy()
+
+    if sub.empty:
+        raise ValueError("No data found for given parameters")
+
+    if patron == 'all':
+        overall_row = sub[sub['breakdown_type'] == 'overall'].iloc[0]
+        main_row = overall_row
+        classifier_journeys = int(overall_row['classifier_journeys']) if not pd.isna(overall_row['classifier_journeys']) else None
+        window_journeys = int(overall_row['window_journeys']) if not pd.isna(overall_row['window_journeys']) else None
+    else:
+        patron_rows = sub[sub['breakdown_type'] == 'patron']
+        if patron not in patron_rows['breakdown_value'].values:
+            raise ValueError(f"Patron '{patron}' not found")
+        main_row = patron_rows[patron_rows['breakdown_value'] == patron].iloc[0]
+        classifier_journeys = int(main_row['classifier_journeys']) if not pd.isna(main_row['classifier_journeys']) else None
+        window_journeys = None  # not computed at patron level
+
+    journey_difference = None if (window_journeys is None or classifier_journeys is None) else int(window_journeys - classifier_journeys)
+
+    def get_breakdown(breakdown_type, col_name):
+        df_break = sub[sub['breakdown_type'] == breakdown_type].copy()
+
+        df_break = df_break[[
+            'breakdown_value',
+            'n_pairs',
+            'wrongly_split_n',
+            'wrongly_merged_n',
+            'wrongly_split_pct',
+            'wrongly_merged_pct',
+            'wrongly_split_pct_all',
+            'wrongly_merged_pct_all'
+        ]].rename(columns={'breakdown_value': col_name}) \
+         .sort_values('wrongly_split_pct', ascending=False) \
+         .reset_index(drop=True)
+
+        return df_break
+
+    return {
+        'spec': classifier_type,
+        'delay_mins': delay_mins,
+        'bus_window_mins': bus_window,
+        'patron': patron,
+        'classifier_journeys': classifier_journeys,
+        'window_journeys': window_journeys,
+        'journey_difference': journey_difference,
+        'wrongly_split_n': int(main_row['wrongly_split_n']),
+        'wrongly_merged_n': int(main_row['wrongly_merged_n']),
+        'wrongly_split_pct': float(main_row['wrongly_split_pct']),
+        'wrongly_merged_pct': float(main_row['wrongly_merged_pct']),
+        'by_patron': get_breakdown('patron', 'patron'),
+        'by_dest_region': get_breakdown('dest_region', 'dest_region'),
+        'by_orig_region': get_breakdown('orig_region', 'orig_region'),
+        'by_hour': get_breakdown('next_entry_hour', 'hour')
     }
