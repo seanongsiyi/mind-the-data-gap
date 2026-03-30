@@ -6,6 +6,13 @@ import pandas as pd
 import json
 from pathlib import Path
 
+# ── Load delay simulation data ────────────────────────────────────────────────
+DELAY_SIM_CSV_PATH = Path('data/delay_sim_results.csv')
+if DELAY_SIM_CSV_PATH.exists():
+    DELAY_SIM_DF = pd.read_csv(DELAY_SIM_CSV_PATH)
+else:
+    DELAY_SIM_DF = None
+
 dash.register_page(__name__, path="/page-4", name="Delay Simulation")
 
 # ── Design tokens ───────────────────────────
@@ -73,6 +80,83 @@ def load_planning_area_geojson():
         return json.load(f)
 
 
+# ── Query helper function ────────────────────────────────────────────────────
+def query_delay_sim(
+    delay_mins:      int,
+    bus_window:      int,
+    classifier_type: str,
+    patron:          str = 'all',
+    df:              pd.DataFrame = None
+):
+    """Query delay simulation results for given parameters."""
+    if df is None:
+        df = DELAY_SIM_DF
+    
+    if df is None:
+        raise ValueError("Delay simulation data not loaded. Missing data/delay_sim_results.csv")
+
+    valid_delays  = [0, 5, 10, 15, 20]
+    valid_windows = list(range(35, 65, 5))
+    valid_specs   = ['baseline', 'lenient', 'strict']
+
+    if delay_mins      not in valid_delays:  raise ValueError(f"delay_mins must be one of {valid_delays}")
+    if bus_window      not in valid_windows: raise ValueError(f"bus_window must be one of {valid_windows}")
+    if classifier_type not in valid_specs:   raise ValueError(f"classifier_type must be one of {valid_specs}")
+
+    sub = df[
+        (df['delay_mins']      == delay_mins)  &
+        (df['bus_window_mins'] == bus_window)  &
+        (df['spec']            == classifier_type)
+    ].copy()
+
+    if sub.empty:
+        raise ValueError("No data found for given parameters")
+
+    if patron == 'all':
+        main_row = sub[sub['breakdown_type'] == 'overall'].iloc[0]
+    else:
+        patron_rows = sub[sub['breakdown_type'] == 'patron']
+        if patron not in patron_rows['breakdown_value'].values:
+            raise ValueError(f"Patron '{patron}' not found. Available: {patron_rows['breakdown_value'].tolist()}")
+        main_row = patron_rows[patron_rows['breakdown_value'] == patron].iloc[0]
+
+    classifier_journeys = int(main_row['classifier_journeys']) if not pd.isna(main_row['classifier_journeys']) else None
+    window_journeys     = int(main_row['window_journeys'])     if not pd.isna(main_row['window_journeys'])     else None
+    journey_difference  = (window_journeys - classifier_journeys) if (window_journeys and classifier_journeys) else None
+
+    def get_breakdown(breakdown_type, col_name):
+        return (
+            sub[sub['breakdown_type'] == breakdown_type][[
+                'breakdown_value', 'n_pairs', 'n_cards',
+                'classifier_journeys', 'window_journeys',
+                'wrongly_split_pairs',       'wrongly_merged_pairs',
+                'wrongly_split_pair_pct',     'wrongly_merged_pair_pct',
+                'wrongly_split_pct_all', 'wrongly_merged_pct_all',
+            ]]
+            .rename(columns={'breakdown_value': col_name})
+            .sort_values('wrongly_split_pair_pct', ascending=False)
+            .reset_index(drop=True)
+        )
+
+    return {
+        'spec':                classifier_type,
+        'delay_mins':          delay_mins,
+        'bus_window_mins':     bus_window,
+        'patron':              patron,
+        'classifier_journeys': classifier_journeys,
+        'window_journeys':     window_journeys,
+        'journey_difference':  journey_difference,
+        'wrongly_split_n':     int(main_row['wrongly_split_pairs']),
+        'wrongly_merged_n':    int(main_row['wrongly_merged_pairs']),
+        'wrongly_split_pct':   float(main_row['wrongly_split_pair_pct']),
+        'wrongly_merged_pct':  float(main_row['wrongly_merged_pair_pct']),
+        'by_patron':           get_breakdown('patron',          'patron'),
+        'by_dest_region':      get_breakdown('dest_region',     'dest_region'),
+        'by_orig_region':      get_breakdown('orig_region',     'orig_region'),
+        'by_hour':             get_breakdown('next_entry_hour', 'hour'),
+    }
+
+
 def get_planning_area_metadata():
     sg_geojson = load_planning_area_geojson()
     rows = []
@@ -125,27 +209,41 @@ def get_placeholder_map_data(region=None, planning_area=None):
     return meta
 
 
-# TODO: Replace with real filtered transfer error counts from backend.
-# Expected shape: DataFrame with columns [metric, count]
-# metric values: "Wrongly Split" (genuine transfers broken), "Wrongly Merged" (false transfers created)
-def get_placeholder_bar_data(region=None, planning_area=None):
-    source = get_placeholder_map_data(region, planning_area)
-    wrongly_split_total = int(source["wrongly_split_n"].sum()) if not source.empty else 0
-    # Tradeoff: extending window rescues wrongly_split but creates wrongly_merged
-    wrongly_merged = int(wrongly_split_total * 0.32)
-
-    df = pd.DataFrame(
-        {
-            "metric": ["Broken", "Created"],
-            "count": [wrongly_split_total, wrongly_merged],
-        }
+def get_real_bar_data(delay_duration=None, transfer_window=45, region=None, planning_area=None, time_of_day=None):
+    """Get real bar data from delay simulation results (percentages)."""
+    if DELAY_SIM_DF is None:
+        raise ValueError("Delay simulation data not loaded. Missing data/delay_sim_results.csv")
+    
+    # Parse delay_duration string to minutes (e.g. "10 minutes" -> 10)
+    if delay_duration:
+        try:
+            delay_mins = int(delay_duration.split()[0])
+        except (ValueError, IndexError):
+            delay_mins = 10
+    else:
+        delay_mins = 10
+    
+    result = query_delay_sim(
+        delay_mins=delay_mins,
+        bus_window=transfer_window,
+        classifier_type='baseline',
+        patron='all'
     )
-
-    order = ["Broken", "Created"]
-    df["metric"] = pd.Categorical(df["metric"], categories=order, ordered=True)
-    df = df.sort_values("metric")
-
+    
+    wrongly_split_pct = result['wrongly_split_pct']
+    wrongly_merged_pct = result['wrongly_merged_pct']
+    
+    df = pd.DataFrame({
+        'metric': ['True transfers broken (%)', 'False transfers created (%)'],
+        'count': [wrongly_split_pct, wrongly_merged_pct],
+    })
+    
+    order = ['True transfers broken (%)', 'False transfers created (%)']
+    df['metric'] = pd.Categorical(df['metric'], categories=order, ordered=True)
+    df = df.sort_values('metric')
+    
     return df
+
 
 # ── Figure builders ───────────────────────────────────────────────────────────
 
@@ -291,12 +389,9 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
 def build_bar_figure(region=None, time_of_day=None, delay_duration=None, transfer_window=45, planning_area=None):
     """
     Builds the Wrongly Split vs Wrongly Merged tradeoff bar chart.
-    Shows the cost and benefit of the selected transfer window.
-
-    TODO: When backend is ready, replace get_placeholder_bar_data() with
-          a real query filtered by (region, time_of_day, delay_duration, transfer_window, planning_area).
+    Shows the cost and benefit of the selected transfer window (as percentages).
     """
-    df = get_placeholder_bar_data(region, planning_area)
+    df = get_real_bar_data(delay_duration, transfer_window, region, planning_area, time_of_day)
     max_count = df["count"].max()
 
     fig = go.Figure([
@@ -304,7 +399,7 @@ def build_bar_figure(region=None, time_of_day=None, delay_duration=None, transfe
             x=df["metric"],
             y=df["count"],
             marker_color=["#dc2626", "#f59e0b"],  # Red for split errors (bad), amber for merge tradeoff
-            text=df["count"],
+            text=[f"{v:.2f}%" for v in df["count"]],
             textposition="outside",
             textfont=dict(size=11, family=FONT_MONO),
             cliponaxis=False,
@@ -314,7 +409,7 @@ def build_bar_figure(region=None, time_of_day=None, delay_duration=None, transfe
     fig.update_layout(
         **{**PLOTLY_LAYOUT, "margin": dict(l=32, r=16, t=40, b=32)},
         xaxis=dict(**AXIS_STYLE),
-        yaxis=dict(**AXIS_STYLE, title="Genuine Transfers", range=[0, max_count * 1.18]),
+        yaxis=dict(**AXIS_STYLE, title="Percentage (%)", range=[0, max_count * 1.18]),
         height=200,
     )
     return fig
@@ -523,6 +618,17 @@ layout = html.Div([
                             config={"displayModeBar": False},
                             style={"height": "220px"},
                         ),
+                        # Debug info
+                        html.Div(id="p4-debug-info", style={
+                            "fontSize": "11px",
+                            "fontFamily": FONT_MONO,
+                            "background": "#f3f4f6",
+                            "padding": "8px 12px",
+                            "borderRadius": "4px",
+                            "color": "#374151",
+                            "marginTop": "8px",
+                            "lineHeight": "1.5",
+                        }),
                     ], style={
                         "background":   C["surface"],
                         "border":       f"1px solid {C['border']}",
@@ -575,6 +681,7 @@ def update_planning_areas(region):
 @callback(
     Output("p4-map-figure", "figure"),
     Output("p4-bar-figure", "figure"),
+    Output("p4-debug-info", "children"),
     Input("p4-region-dropdown", "value"),
     Input("p4-planning-area-dropdown", "value"),
     Input("p4-time-dropdown", "value"),
@@ -584,5 +691,30 @@ def update_planning_areas(region):
 def update_figures(region, planning_area, time_of_day, delay_duration, transfer_window):
     map_fig = build_map_figure(region, time_of_day, delay_duration, transfer_window, planning_area)
     bar_fig = build_bar_figure(region, time_of_day, delay_duration, transfer_window, planning_area)
-    return map_fig, bar_fig
+    
+    # Get debug info from the query
+    debug_text = ""
+    if DELAY_SIM_DF is None:
+        debug_text = "CSV not loaded"
+    elif delay_duration is None:
+        debug_text = "Select a delay duration"
+    else:
+        try:
+            delay_mins = int(delay_duration.split()[0])
+            result = query_delay_sim(
+                delay_mins=delay_mins,
+                bus_window=transfer_window,
+                classifier_type='baseline',
+                patron='all'
+            )
+            debug_text = (
+                f"Delay: {result['delay_mins']}min | "
+                f"Window: {result['bus_window_mins']}min | "
+                f"Wrongly Split: {result['wrongly_split_pct']:.2f}% | "
+                f"Wrongly Merged: {result['wrongly_merged_pct']:.2f}%"
+            )
+        except Exception as e:
+            debug_text = f"Error: {str(e)}"
+    
+    return map_fig, bar_fig, debug_text
 
