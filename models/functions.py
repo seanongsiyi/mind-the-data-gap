@@ -114,25 +114,27 @@ def get_trf_time_distribution(age_group=None, hour=None):
     return df.reset_index(drop=True)
 
 
-def get_trf_pair_distribution(orig_station=None, dest_station=None):
+def get_trf_region_pair(orig_region=None, dest_region=None, hour=None):
     """
-    Returns top transfer station pairs by count.
+    Returns transfer volume by origin-destination region pair and hour of day.
 
     Inputs:
-    - orig_station: None (all), or filter by origin station name string
-    - dest_station: None (all), or filter by destination station name string
+    - orig_region: None (all), or filter by origin region string
+    - dest_region: None (all), or filter by destination region string
+    - hour:        None (all), or integer 0-23
 
-    Returns: DataFrame with [ORIG_STATION_NAME, DEST_STATION_NAME, count]
+    Returns: DataFrame with [orig_region, dest_region, hour_of_day, count]
     """
-    df = pd.read_csv(os.path.join(_data_dir, 'trf_pair_dist.csv'))
+    df = pd.read_csv(os.path.join(_data_dir, 'trf_region_pair.csv'))
 
-    if orig_station is not None:
-        df = df[df['ORIG_STATION_NAME'] == orig_station]
-    if dest_station is not None:
-        df = df[df['DEST_STATION_NAME'] == dest_station]
+    if orig_region is not None:
+        df = df[df['orig_region'] == orig_region]
+    if dest_region is not None:
+        df = df[df['dest_region'] == dest_region]
+    if hour is not None:
+        df = df[df['hour_of_day'] == hour]
 
     return df.reset_index(drop=True)
-
 
 def get_trf_temporal_pattern(patron=None):
     """
@@ -141,68 +143,21 @@ def get_trf_temporal_pattern(patron=None):
     Inputs:
     - patron: None (all), or one of 'Adult', 'Student', 'Senior Citizen'
 
-    Returns: DataFrame with [hour_of_day, PATRON_CATG_DESC_TXT, avg_transfer_time_mins]
+    Returns: DataFrame with [hour_of_day, PATRON_CATG_DESC_TXT, avg_transfer_time_mins, count]
     """
-    df = pd.read_csv(os.path.join(_data_dir, 'trf_pattern_distribution.csv'))
+    age_group_map = {
+        '7-19':  'Student',
+        '20-59': 'Adult',
+        '60+':   'Senior Citizen'
+    }
+
+    df = pd.read_csv(os.path.join(_data_dir, 'trf_time_distribution.csv'))
+    df['PATRON_CATG_DESC_TXT'] = df['age_group'].map(age_group_map)
 
     if patron is not None:
         df = df[df['PATRON_CATG_DESC_TXT'] == patron]
 
-    return df.reset_index(drop=True)
-
-## Misclassification Functions
-
-def get_misclassified_transfers_region(region=None):
-    """
-    Returns number of actual transfers that were predicted to be new journeys (split error/'false negative') grouped by destination region
-    """
-    df = pd.read_csv(os.path.join(_data_dir, 'fn_by_region.csv'))
-
-    if region is not None:
-        df = df[df['dest_region'] == region]
-    
-    return df.reset_index(drop=True)
-
-def get_misclassified_journeys_region(region=None):
-    """
-    Returns number of actual new journeys that were predicted to be transfers (merge error/'false positive') grouped by destination region
-    """
-    df = pd.read_csv(os.path.join(_data_dir, 'fp_by_region.csv'))
-
-    if region is not None:
-        df = df[df['dest_region'] == region]
-    
-    return df.reset_index(drop=True)
-
-def get_misclassified_transfers_pairs(origin=None, next=None):
-    """
-    Returns exact station/stop transfer pair and the corresponding number of actual transfers that were predicted to be new journeys 
-    (split error/'false negative')
-    """
-    df = pd.read_csv(os.path.join(_data_dir, 'fn_pair.csv'))
-
-    if origin is not None:
-        df = df[df['ORIG_STATION_NAME'] == origin]
-    
-    if next is not None:
-        df = df[df['next_orig_station'] == next]
-    
-    return df.reset_index(drop=True)
-
-def get_misclassified_journeys_pairs(origin=None, next=None):
-    """
-    Returns exact station/stop transfer pair and the corresponding number of actual new journeys that were predicted to be transfers 
-    (merge error/'false positive')
-    """
-    df = pd.read_csv(os.path.join(_data_dir, 'fn_pair.csv'))
-
-    if origin is not None:
-        df = df[df['ORIG_STATION_NAME'] == origin]
-    
-    if next is not None:
-        df = df[df['next_orig_station'] == next]
-    
-    return df.reset_index(drop=True)
+    return df[['hour_of_day', 'PATRON_CATG_DESC_TXT', 'avg_transfer_time_mins', 'count']].reset_index(drop=True)
 
 ## Delay Simulator Functions
 
@@ -306,3 +261,61 @@ def query_delay_sim(
         'by_orig_region': get_breakdown('orig_region', 'orig_region'),
         'by_hour': get_breakdown('next_entry_hour', 'hour')
     }
+
+
+
+
+'''
+
+def get_misclassified_transfers_region(region=None):
+    """
+    Returns number of actual transfers that were predicted to be new journeys (split error/'false negative') grouped by destination region
+    """
+    df = pd.read_csv(os.path.join(_data_dir, 'fn_by_region.csv'))
+
+    if region is not None:
+        df = df[df['dest_region'] == region]
+    
+    return df.reset_index(drop=True)
+
+def get_misclassified_journeys_region(region=None):
+    """
+    Returns number of actual new journeys that were predicted to be transfers (merge error/'false positive') grouped by destination region
+    """
+    df = pd.read_csv(os.path.join(_data_dir, 'fp_by_region.csv'))
+
+    if region is not None:
+        df = df[df['dest_region'] == region]
+    
+    return df.reset_index(drop=True)
+
+def get_misclassified_transfers_pairs(origin=None, next=None):
+    """
+    Returns exact station/stop transfer pair and the corresponding number of actual transfers that were predicted to be new journeys 
+    (split error/'false negative')
+    """
+    df = pd.read_csv(os.path.join(_data_dir, 'fn_pair.csv'))
+
+    if origin is not None:
+        df = df[df['ORIG_STATION_NAME'] == origin]
+    
+    if next is not None:
+        df = df[df['next_orig_station'] == next]
+    
+    return df.reset_index(drop=True)
+
+def get_misclassified_journeys_pairs(origin=None, next=None):
+    """
+    Returns exact station/stop transfer pair and the corresponding number of actual new journeys that were predicted to be transfers 
+    (merge error/'false positive')
+    """
+    df = pd.read_csv(os.path.join(_data_dir, 'fn_pair.csv'))
+
+    if origin is not None:
+        df = df[df['ORIG_STATION_NAME'] == origin]
+    
+    if next is not None:
+        df = df[df['next_orig_station'] == next]
+    
+    return df.reset_index(drop=True)
+'''
