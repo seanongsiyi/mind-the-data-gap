@@ -102,13 +102,18 @@ def get_planning_areas_for_region(region):
 
 
 # TODO: Replace with real filtered commuter data from backend.
-# Expected shape: DataFrame with columns [region, planning_area, affected_commuters]
+# Expected shape: DataFrame with columns [region, planning_area, wrongly_split_n, wrongly_split_pct]
 def get_placeholder_map_data(region=None, planning_area=None):
     meta = get_planning_area_metadata().copy()
 
     # Deterministic synthetic values so the demo remains stable across refreshes.
-    meta["affected_commuters"] = meta["planning_area_raw"].apply(
-        lambda x: 400 + (sum(ord(ch) for ch in x) % 1400)
+    # wrongly_split_n: number of genuine transfers broken under this delay
+    meta["wrongly_split_n"] = meta["planning_area_raw"].apply(
+        lambda x: 150 + (sum(ord(ch) for ch in x) % 800)
+    )
+    # wrongly_split_pct: percentage of all genuine transfers in this region
+    meta["wrongly_split_pct"] = meta["planning_area_raw"].apply(
+        lambda x: 5 + ((sum(ord(ch) for ch in x) % 25))
     )
 
     if region and region != "All Regions":
@@ -120,25 +125,25 @@ def get_placeholder_map_data(region=None, planning_area=None):
     return meta
 
 
-# TODO: Replace with real filtered commuter counts from backend.
-# Expected shape: DataFrame with columns [category, count]
-# category values: "In Window", "Out of Window"
+# TODO: Replace with real filtered transfer error counts from backend.
+# Expected shape: DataFrame with columns [metric, count]
+# metric values: "Wrongly Split" (genuine transfers broken), "Wrongly Merged" (false transfers created)
 def get_placeholder_bar_data(region=None, planning_area=None):
     source = get_placeholder_map_data(region, planning_area)
-    total = int(source["affected_commuters"].sum()) if not source.empty else 0
-    in_window = int(total * 0.68)
-    out_of_window = total - in_window
+    wrongly_split_total = int(source["wrongly_split_n"].sum()) if not source.empty else 0
+    # Tradeoff: extending window rescues wrongly_split but creates wrongly_merged
+    wrongly_merged = int(wrongly_split_total * 0.32)
 
     df = pd.DataFrame(
         {
-            "category": ["In Window", "Out of Window"],
-            "count": [in_window, out_of_window],
+            "metric": ["Broken", "Created"],
+            "count": [wrongly_split_total, wrongly_merged],
         }
     )
 
-    order = ["In Window", "Out of Window"]
-    df["category"] = pd.Categorical(df["category"], categories=order, ordered=True)
-    df = df.sort_values("category")
+    order = ["Broken", "Created"]
+    df["metric"] = pd.Categorical(df["metric"], categories=order, ordered=True)
+    df = df.sort_values("metric")
 
     return df
 
@@ -172,8 +177,8 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
             geojson=sg_geojson,
             locations="planning_area_raw",
             featureidkey="properties.PLN_AREA_N",
-            color="affected_commuters",
-            labels={"affected_commuters": "Affected commuters"},
+            color="wrongly_split_pct",
+            labels={"wrongly_split_pct": "% of genuine transfers broken"},
             color_continuous_scale=[
                 "#eaf2ff",
                 "#bfd6ff",
@@ -191,11 +196,12 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
         )
 
         fig.update_traces(
-            customdata=df_all[["planning_area", "region", "affected_commuters"]].values,
+            customdata=df_all[["planning_area", "region", "wrongly_split_n", "wrongly_split_pct"]].values,
             hovertemplate=(
                 "<b>%{customdata[0]}</b><br>"
                 "Region: %{customdata[1]}<br>"
-                "Affected commuters: %{customdata[2]}<extra></extra>"
+                "Transfers broken: %{customdata[2]}<br>"
+                "% of transfers: %{customdata[3]}%<extra></extra>"
             ),
             marker_line_width=0.5,
             marker_line_color="grey",
@@ -216,11 +222,12 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
                     showscale=False,
                     marker_line_width=0.5,
                     marker_line_color="grey",
-                    customdata=df_other[["planning_area", "region", "affected_commuters"]].values,
+                    customdata=df_other[["planning_area", "region", "wrongly_split_n", "wrongly_split_pct"]].values,
                     hovertemplate=(
                         "<b>%{customdata[0]}</b><br>"
                         "Region: %{customdata[1]}<br>"
-                        "Affected commuters: %{customdata[2]}<extra></extra>"
+                        "Transfers broken: %{customdata[2]}<br>"
+                        "% of transfers: %{customdata[3]}%<extra></extra>"
                     ),
                 )
             )
@@ -229,7 +236,7 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
             go.Choroplethmapbox(
                 geojson=sg_geojson,
                 locations=df_selected["planning_area_raw"],
-                z=df_selected["affected_commuters"],
+                z=df_selected["wrongly_split_pct"],
                 featureidkey="properties.PLN_AREA_N",
                 colorscale=[
                     [0.0, "#eaf2ff"],
@@ -237,16 +244,17 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
                     [0.66, "#7faeff"],
                     [1.0, "#1a56db"],
                 ],
-                zmin=df_all["affected_commuters"].min(),
-                zmax=df_all["affected_commuters"].max(),
+                zmin=df_all["wrongly_split_pct"].min(),
+                zmax=df_all["wrongly_split_pct"].max(),
                 showscale=False,
                 marker_line_width=0.5,
                 marker_line_color="grey",
-                customdata=df_selected[["planning_area", "region", "affected_commuters"]].values,
+                customdata=df_selected[["planning_area", "region", "wrongly_split_n", "wrongly_split_pct"]].values,
                 hovertemplate=(
                     "<b>%{customdata[0]}</b><br>"
                     "Region: %{customdata[1]}<br>"
-                    "Affected commuters: %{customdata[2]}<extra></extra>"
+                    "Transfers broken: %{customdata[2]}<br>"
+                    "% of transfers: %{customdata[3]}%<extra></extra>"
                 ),
             )
         )
@@ -256,7 +264,8 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
             hovertemplate=
             "<b>%{customdata[0]}</b><br>"
             "Region: %{customdata[1]}<br>"
-            "Affected commuters: %{customdata[2]}<extra></extra>"
+            "Transfers broken: %{customdata[2]}<br>"
+            "% of transfers: %{customdata[3]}%<extra></extra>"
         )
 
     fig.update_layout(
@@ -281,7 +290,8 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
 
 def build_bar_figure(region=None, time_of_day=None, delay_duration=None, transfer_window=45, planning_area=None):
     """
-    Builds the In Window vs Out of Window bar chart.
+    Builds the Wrongly Split vs Wrongly Merged tradeoff bar chart.
+    Shows the cost and benefit of the selected transfer window.
 
     TODO: When backend is ready, replace get_placeholder_bar_data() with
           a real query filtered by (region, time_of_day, delay_duration, transfer_window, planning_area).
@@ -291,20 +301,20 @@ def build_bar_figure(region=None, time_of_day=None, delay_duration=None, transfe
 
     fig = go.Figure([
         go.Bar(
-            x=df["category"],
+            x=df["metric"],
             y=df["count"],
-            marker_color=[C["accent"], C["accent_mid"]],
+            marker_color=["#dc2626", "#f59e0b"],  # Red for split errors (bad), amber for merge tradeoff
             text=df["count"],
             textposition="outside",
             textfont=dict(size=11, family=FONT_MONO),
-            cliponaxis = False,
+            cliponaxis=False,
         )
     ])
 
     fig.update_layout(
         **{**PLOTLY_LAYOUT, "margin": dict(l=32, r=16, t=40, b=32)},
         xaxis=dict(**AXIS_STYLE),
-        yaxis=dict(**AXIS_STYLE, title="Commuters", range=[0, max_count * 1.18]),
+        yaxis=dict(**AXIS_STYLE, title="Genuine Transfers", range=[0, max_count * 1.18]),
         height=200,
     )
     return fig
@@ -406,7 +416,7 @@ layout = html.Div([
     # ── Main card: Map + Controls ─────────────────────────────────────────────
     card(
         "Regional Impact Map",
-        "Commuters affected by delayed transfers, filterable by region, time of day, and delay duration",
+        "Genuine transfers broken by delays, shown as % of all transfers in each region",
         [
             # Filter row
             html.Div([
@@ -506,7 +516,7 @@ layout = html.Div([
 
                     # Bar chart
                     html.Div([
-                        section_label("Commuters affected"),
+                        section_label("Tradeoff Analysis"),
                         dcc.Graph(
                             id="p4-bar-figure",
                             figure=build_bar_figure(),
@@ -525,8 +535,9 @@ layout = html.Div([
             ], style={"display": "flex", "gap": "20px", "alignItems": "flex-start"}),
 
             html.P(
-                "Regions with higher affected commuter counts may benefit most from an extended transfer window. "
-                "Use the slider to evaluate how different window sizes change the proportion of commuters impacted.",
+                "The map shows the percentage of genuine transfers incorrectly broken under the current delay conditions. "
+                "Use the slider to see how extending the transfer window rescues these broken transfers. "
+                "The tradeoff panel shows the cost: wrongly linked transfers (false discounts) created by too-lenient windows.",
                 style={
                     "fontSize":   "12px",
                     "color":      C["secondary"],
