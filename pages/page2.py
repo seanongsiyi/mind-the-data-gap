@@ -280,7 +280,9 @@ def get_real_map_data(
         df_merged = df_merged[df_merged["region"] == region]
     
     if planning_area and planning_area != "All Planning Areas":
-        df_merged = df_merged[df_merged["planning_area"] == planning_area]
+        df_merged = df_merged[
+            df_merged["planning_area"].str.strip().str.lower() == planning_area.strip().lower()
+            ]
     
     return df_merged[['region', 'planning_area_raw', 'planning_area', 'wrongly_split_n', 'wrongly_split_pct', 'has_data']]
 
@@ -429,83 +431,44 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
             )
 
     else:
-        # Filter active: grey out unselected, highlight selected (with no-data handling)
-        df_selected_with_data = df_selected[df_selected['has_data'] == True].copy()
-        df_selected_no_data = df_selected[df_selected['has_data'] == False].copy()
-        
+    # Filter active: use a single trace
+    # selected area(s) = blue, everything else = grey
+
         selected_areas = set(df_selected["planning_area_raw"])
-        df_other = df_all[~df_all["planning_area_raw"].isin(selected_areas)]
 
-        # Trace 1: Unselected areas (always grey)
-        if not df_other.empty:
-            fig.add_trace(
-                go.Choroplethmapbox(
-                    geojson=sg_geojson,
-                    locations=df_other["planning_area_raw"],
-                    z=[1] * len(df_other),
-                    featureidkey="properties.PLN_AREA_N",
-                    colorscale=[[0, "#e5e7eb"], [1, "#e5e7eb"]],
-                    showscale=False,
-                    marker_line_width=0.5,
-                    marker_line_color="grey",
-                    customdata=df_other[["planning_area", "region"]].values,
-                    hovertemplate=(
-                        "<b>%{customdata[0]}</b><br>"
-                        "Region: %{customdata[1]}<br>"
-                        "No data<extra></extra>"
-                    ),
-                )
-            )
+        df_display = df_all.copy()
+        df_display["is_selected"] = df_display["planning_area_raw"].isin(selected_areas)
+        df_display["fill_value"] = df_display["is_selected"].astype(int)
 
-        # Trace 2: Selected areas with data (colored)
-        if not df_selected_with_data.empty:
-            fig.add_trace(
-                go.Choroplethmapbox(
-                    geojson=sg_geojson,
-                    locations=df_selected_with_data["planning_area_raw"],
-                    z=df_selected_with_data["wrongly_split_pct"],
-                    featureidkey="properties.PLN_AREA_N",
-                    colorscale=[
-                        [0.0, "#eaf2ff"],
-                        [0.33, "#bfd6ff"],
-                        [0.66, "#7faeff"],
-                        [1.0, "#1a56db"],
-                    ],
-                    zmin=df_all[df_all['has_data'] == True]["wrongly_split_pct"].min(),
-                    zmax=df_all[df_all['has_data'] == True]["wrongly_split_pct"].max(),
-                    showscale=False,
-                    marker_line_width=0.5,
-                    marker_line_color="grey",
-                    customdata=df_selected_with_data[["planning_area", "region", "wrongly_split_n", "wrongly_split_pct"]].values,
-                    hovertemplate=(
-                        "<b>%{customdata[0]}</b><br>"
-                        "Region: %{customdata[1]}<br>"
-                        "Transfers broken: %{customdata[2]}<br>"
-                        "% of transfers: %{customdata[3]:.2f}%<extra></extra>"
-                    ),
-                )
+        fig.add_trace(
+            go.Choroplethmapbox(
+                geojson=sg_geojson,
+                locations=df_display["planning_area_raw"],
+                z=df_display["fill_value"],
+                featureidkey="properties.PLN_AREA_N",
+                colorscale=[
+                    [0.0, "#e5e7eb"],
+                    [0.499, "#e5e7eb"],
+                    [0.5, "#1a56db"],
+                    [1.0, "#1a56db"],
+                ],
+                zmin=0,
+                zmax=1,
+                showscale=False,
+                marker_line_width=0.5,
+                marker_line_color="grey",
+                customdata=df_display[
+                    ["planning_area", "region", "wrongly_split_n", "wrongly_split_pct", "is_selected"]
+                ].values,
+                hovertemplate=(
+                    "<b>%{customdata[0]}</b><br>"
+                    "Region: %{customdata[1]}<br>"
+                    "Transfers broken: %{customdata[2]}<br>"
+                    "% of transfers: %{customdata[3]:.2f}%<br>"
+                    "Selected: %{customdata[4]}<extra></extra>"
+                ),
             )
-        
-        # Trace 3: Selected areas without data (darker grey)
-        if not df_selected_no_data.empty:
-            fig.add_trace(
-                go.Choroplethmapbox(
-                    geojson=sg_geojson,
-                    locations=df_selected_no_data["planning_area_raw"],
-                    z=[1] * len(df_selected_no_data),
-                    featureidkey="properties.PLN_AREA_N",
-                    colorscale=[[0, "#d1d5db"], [1, "#d1d5db"]],
-                    showscale=False,
-                    marker_line_width=0.5,
-                    marker_line_color="grey",
-                    customdata=df_selected_no_data[["planning_area", "region"]].values,
-                    hovertemplate=(
-                        "<b>%{customdata[0]}</b><br>"
-                        "Region: %{customdata[1]}<br>"
-                        "No data<extra></extra>"
-                    ),
-                )
-            )
+        )
 
     fig.update_layout(
         mapbox=dict(
@@ -524,6 +487,7 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
             bordercolor="#d1d5db"
         )
     )
+    
     return fig
 
 
@@ -800,11 +764,16 @@ layout = html.Div([
     Output("p4-planning-area-dropdown", "options"),
     Output("p4-planning-area-dropdown", "value"),
     Input("p4-region-dropdown", "value"),
+    State("p4-planning-area-dropdown", "value"),
 )
-def update_planning_areas(region):
-    """Update planning area options based on selected region."""
+def update_planning_areas(region, current_value):
     planning_areas = get_planning_areas_for_region(region)
     options = [{"label": pa, "value": pa} for pa in planning_areas]
+
+    # keep current selection if still valid
+    valid_values = [pa for pa in planning_areas]
+    if current_value in valid_values:
+        return options, current_value
     return options, "All Planning Areas"
 
 
