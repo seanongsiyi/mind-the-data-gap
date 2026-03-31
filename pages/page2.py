@@ -3,8 +3,16 @@ from dash import dcc, html, Input, Output, callback, State, no_update
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
+import numpy as np
 import json
 from pathlib import Path
+
+# ── Load delay simulation data ────────────────────────────────────────────────
+DELAY_SIM_CSV_PATH = Path('data/delay_sim_results.csv')
+if DELAY_SIM_CSV_PATH.exists():
+    DELAY_SIM_DF = pd.read_csv(DELAY_SIM_CSV_PATH)
+else:
+    DELAY_SIM_DF = None
 
 dash.register_page(__name__, path="/page-4", name="Delay Simulation")
 
@@ -65,12 +73,89 @@ TIMES_OF_DAY = [
 ]
 
 # TODO: Replace with actual delay duration options from backend
-DELAY_DURATIONS = ["5 minutes", "10 minutes", "15 minutes"]
+DELAY_DURATIONS = ["0 minutes", "5 minutes", "10 minutes", "15 minutes", "20 minutes"]
 
 
 def load_planning_area_geojson():
     with open(PLANNING_AREAS_GEOJSON_PATH, "r") as f:
         return json.load(f)
+
+
+# ── Query helper function ────────────────────────────────────────────────────
+def query_delay_sim(
+    delay_mins:      int,
+    bus_window:      int,
+    classifier_type: str,
+    patron:          str = 'all',
+    df:              pd.DataFrame = None
+):
+    """Query delay simulation results for given parameters."""
+    if df is None:
+        df = DELAY_SIM_DF
+    
+    if df is None:
+        raise ValueError("Delay simulation data not loaded. Missing data/delay_sim_results.csv")
+
+    valid_delays  = [0, 5, 10, 15, 20]
+    valid_windows = list(range(35, 65, 5))
+    valid_specs   = ['baseline', 'lenient', 'strict']
+
+    if delay_mins      not in valid_delays:  raise ValueError(f"delay_mins must be one of {valid_delays}")
+    if bus_window      not in valid_windows: raise ValueError(f"bus_window must be one of {valid_windows}")
+    if classifier_type not in valid_specs:   raise ValueError(f"classifier_type must be one of {valid_specs}")
+
+    sub = df[
+        (df['delay_mins']      == delay_mins)  &
+        (df['bus_window_mins'] == bus_window)  &
+        (df['spec']            == classifier_type)
+    ].copy()
+
+    if sub.empty:
+        raise ValueError("No data found for given parameters")
+
+    if patron == 'all':
+        main_row = sub[sub['breakdown_type'] == 'overall'].iloc[0]
+    else:
+        patron_rows = sub[sub['breakdown_type'] == 'patron']
+        if patron not in patron_rows['breakdown_value'].values:
+            raise ValueError(f"Patron '{patron}' not found. Available: {patron_rows['breakdown_value'].tolist()}")
+        main_row = patron_rows[patron_rows['breakdown_value'] == patron].iloc[0]
+
+    classifier_journeys = int(main_row['classifier_journeys']) if not pd.isna(main_row['classifier_journeys']) else None
+    window_journeys     = int(main_row['window_journeys'])     if not pd.isna(main_row['window_journeys'])     else None
+    journey_difference  = (window_journeys - classifier_journeys) if (window_journeys and classifier_journeys) else None
+
+    def get_breakdown(breakdown_type, col_name):
+        return (
+            sub[sub['breakdown_type'] == breakdown_type][[
+                'breakdown_value', 'n_pairs', 'n_cards',
+                'classifier_journeys', 'window_journeys',
+                'wrongly_split_pairs',       'wrongly_merged_pairs',
+                'wrongly_split_pair_pct',     'wrongly_merged_pair_pct',
+                'wrongly_split_pct_all', 'wrongly_merged_pct_all',
+            ]]
+            .rename(columns={'breakdown_value': col_name})
+            .sort_values('wrongly_split_pair_pct', ascending=False)
+            .reset_index(drop=True)
+        )
+
+    return {
+        'spec':                classifier_type,
+        'delay_mins':          delay_mins,
+        'bus_window_mins':     bus_window,
+        'patron':              patron,
+        'classifier_journeys': classifier_journeys,
+        'window_journeys':     window_journeys,
+        'journey_difference':  journey_difference,
+        'wrongly_split_n':     int(main_row['wrongly_split_pairs']),
+        'wrongly_merged_n':    int(main_row['wrongly_merged_pairs']),
+        'wrongly_split_pct':   float(main_row['wrongly_split_pair_pct']),
+        'wrongly_merged_pct':  float(main_row['wrongly_merged_pair_pct']),
+        'by_patron':           get_breakdown('patron',          'patron'),
+        'by_dest_region':      get_breakdown('dest_region',     'dest_region'),
+        'by_orig_region':      get_breakdown('orig_region',     'orig_region'),
+        'by_hour':             get_breakdown('next_entry_hour', 'hour'),
+    }
 
 
 def get_planning_area_metadata():
@@ -101,69 +186,178 @@ def get_planning_areas_for_region(region):
     return ["All Planning Areas"] + meta["planning_area"].tolist()
 
 
-# TODO: Replace with real filtered commuter data from backend.
-# Expected shape: DataFrame with columns [region, planning_area, wrongly_split_n, wrongly_split_pct]
-def get_placeholder_map_data(region=None, planning_area=None):
+# ── Real map data helper using simulation results ────────────────────────────
+def get_real_map_data(
+    region=None,
+    planning_area=None,
+    delay_duration=None,
+    transfer_window=45,
+    classifier_type="baseline",
+    time_of_day=None  # Ignored for now; TODO: implement time-of-day filtering
+):
+    """
+    Get real map data from delay simulation CSV using destination geography.
+    
+    This function:
+    1. Filters simulation data by delay_mins, bus_window_mins, and spec
+    2. Extracts destination-region (planning area) level data
+    3. Joins with planning area metadata from GeoJSON
+    4. Includes all planning areas; marks missing data areas with has_data=False
+    5. Applies region/planning_area filters
+    
+    Args:
+        region: Selected region filter (or "All Regions")
+        planning_area: Selected planning area filter (or "All Planning Areas")
+        delay_duration: String like "10 minutes" (parsed to int)
+        transfer_window: int, window in minutes (default 45)
+        classifier_type: "baseline", "lenient", or "strict"
+        time_of_day: Currently ignored; no time filtering on map
+    
+    Returns:
+        DataFrame with columns: region, planning_area_raw, planning_area, wrongly_split_n, wrongly_split_pct, has_data
+    """
+    if DELAY_SIM_DF is None:
+        raise ValueError("Delay simulation data not loaded. Missing data/delay_sim_results.csv")
+    
+    # Parse delay_duration string to minutes (e.g., "10 minutes" -> 10)
+    # Default to 0 if no delay_duration filter selected
+    if delay_duration:
+        try:
+            delay_mins = int(delay_duration.split()[0])
+        except (ValueError, IndexError):
+            delay_mins = 0
+    else:
+        delay_mins = 0
+    
+    # Load planning area metadata (all areas)
     meta = get_planning_area_metadata().copy()
-
-    # Deterministic synthetic values so the demo remains stable across refreshes.
-    # wrongly_split_n: number of genuine transfers broken under this delay
-    meta["wrongly_split_n"] = meta["planning_area_raw"].apply(
-        lambda x: 150 + (sum(ord(ch) for ch in x) % 800)
+    
+    # Filter to destination region breakdown rows with matching parameters
+    df_dest_region = DELAY_SIM_DF[
+        (DELAY_SIM_DF['breakdown_type'] == 'dest_region') &
+        (DELAY_SIM_DF['delay_mins'] == delay_mins) &
+        (DELAY_SIM_DF['bus_window_mins'] == transfer_window) &
+        (DELAY_SIM_DF['spec'] == classifier_type)
+    ].copy()
+    
+    # Rename breakdown_value to planning_area_raw
+    if not df_dest_region.empty:
+        df_dest_region = df_dest_region.rename(columns={'breakdown_value': 'planning_area_raw'})
+        df_dest_region = df_dest_region[['planning_area_raw', 'wrongly_split_pairs', 'wrongly_split_pair_pct']].copy()
+        df_dest_region = df_dest_region.rename(columns={
+            'wrongly_split_pairs': 'wrongly_split_n',
+            'wrongly_split_pair_pct': 'wrongly_split_pct'
+        })
+        df_dest_region['has_data'] = True
+    else:
+        # Empty dataframe with correct columns
+        df_dest_region = pd.DataFrame(columns=['planning_area_raw', 'wrongly_split_n', 'wrongly_split_pct', 'has_data'])
+    
+    # Left join all planning areas with simulation data
+    # This ensures all areas appear on map, with has_data=False for missing areas
+    df_merged = meta[['planning_area_raw', 'planning_area', 'region']].merge(
+        df_dest_region,
+        on='planning_area_raw',
+        how='left'
     )
-    # wrongly_split_pct: percentage of all genuine transfers in this region
-    meta["wrongly_split_pct"] = meta["planning_area_raw"].apply(
-        lambda x: 5 + ((sum(ord(ch) for ch in x) % 25))
-    )
-
+    
+    # Fill missing data rows with NaN for values and has_data=False
+    df_merged['wrongly_split_n'] = df_merged['wrongly_split_n'].fillna(0)
+    df_merged['wrongly_split_pct'] = df_merged['wrongly_split_pct'].fillna(np.nan)
+    
+    # Mark as has_data only if BOTH wrongly_split_n and wrongly_split_pct are present
+    # (Some areas like Lim Chu Kang have split_n but missing split_pct)
+    df_merged['has_data'] = df_merged['has_data'].fillna(False)
+    df_merged.loc[df_merged['wrongly_split_pct'].isna(), 'has_data'] = False
+    
+    # Explicitly mark certain areas as no-data (wildlife reserves, etc.)
+    no_data_areas = ['LIM CHU KANG']
+    df_merged.loc[df_merged['planning_area_raw'].isin(no_data_areas), 'has_data'] = False
+    df_merged.loc[df_merged['planning_area_raw'].isin(no_data_areas), 'wrongly_split_pct'] = np.nan
+    
+    # Apply filters
     if region and region != "All Regions":
-        meta = meta[meta["region"] == region]
-
+        df_merged = df_merged[df_merged["region"] == region]
+    
     if planning_area and planning_area != "All Planning Areas":
-        meta = meta[meta["planning_area"] == planning_area]
+        df_merged = df_merged[df_merged["planning_area"] == planning_area]
+    
+    return df_merged[['region', 'planning_area_raw', 'planning_area', 'wrongly_split_n', 'wrongly_split_pct', 'has_data']]
 
-    return meta
 
-
-# TODO: Replace with real filtered transfer error counts from backend.
-# Expected shape: DataFrame with columns [metric, count]
-# metric values: "Wrongly Split" (genuine transfers broken), "Wrongly Merged" (false transfers created)
-def get_placeholder_bar_data(region=None, planning_area=None):
-    source = get_placeholder_map_data(region, planning_area)
-    wrongly_split_total = int(source["wrongly_split_n"].sum()) if not source.empty else 0
-    # Tradeoff: extending window rescues wrongly_split but creates wrongly_merged
-    wrongly_merged = int(wrongly_split_total * 0.32)
-
-    df = pd.DataFrame(
-        {
-            "metric": ["Broken", "Created"],
-            "count": [wrongly_split_total, wrongly_merged],
-        }
+def get_real_bar_data(delay_duration=None, transfer_window=45, region=None, planning_area=None, time_of_day=None):
+    """Get real bar data from delay simulation results (percentages)."""
+    if DELAY_SIM_DF is None:
+        raise ValueError("Delay simulation data not loaded. Missing data/delay_sim_results.csv")
+    
+    # Parse delay_duration string to minutes (e.g. "10 minutes" -> 10)
+    # Default to 0 if no delay_duration filter selected
+    if delay_duration:
+        try:
+            delay_mins = int(delay_duration.split()[0])
+        except (ValueError, IndexError):
+            delay_mins = 0
+    else:
+        delay_mins = 0
+    
+    result = query_delay_sim(
+        delay_mins=delay_mins,
+        bus_window=transfer_window,
+        classifier_type='baseline',
+        patron='all'
     )
-
-    order = ["Broken", "Created"]
-    df["metric"] = pd.Categorical(df["metric"], categories=order, ordered=True)
-    df = df.sort_values("metric")
-
+    
+    wrongly_split_pct = result['wrongly_split_pct']
+    wrongly_merged_pct = result['wrongly_merged_pct']
+    
+    df = pd.DataFrame({
+        'metric': ['True transfers broken (%)', 'False transfers created (%)'],
+        'count': [wrongly_split_pct, wrongly_merged_pct],
+    })
+    
+    order = ['True transfers broken (%)', 'False transfers created (%)']
+    df['metric'] = pd.Categorical(df['metric'], categories=order, ordered=True)
+    df = df.sort_values('metric')
+    
     return df
+
 
 # ── Figure builders ───────────────────────────────────────────────────────────
 
 def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfer_window=45, planning_area=None):
     """
-    Builds the Singapore map figure.
-
-    TODO: When backend is ready:
-      1. Query filtered commuter data using (region, time_of_day, delay_duration, transfer_window, planning_area)
-      2. Query filtered commuter data by planning area and join on PLN_AREA_N.
-      3. Replace synthetic values with actual affected commuter counts.
+    Builds the Singapore map figure using real simulation data.
+    
+    The map shows the percentage of genuine transfers broken (wrongly_split_pct)
+    for each destination planning area, colored by a blue intensity scale.
+    Uncolored areas are those with no data (grey background with "No data" on hover).
+    
+    Behavior:
+    - If no region/planning_area selected: show full Singapore with data areas colored, no-data areas grey
+    - If region/planning_area selected: grey out unselected areas, highlight selection (with separate no-data handling)
+    - Time-of-day filtering: Currently ignored (TODO)
     """
     sg_geojson = load_planning_area_geojson()
-    df_all = get_placeholder_map_data()
-    df_selected = get_placeholder_map_data(region, planning_area)
-
-    if df_selected.empty:
-        df_selected = df_all.copy()
+    
+    # Get real map data (all planning areas for reference)
+    df_all = get_real_map_data(
+        region=None,
+        planning_area=None,
+        delay_duration=delay_duration,
+        transfer_window=transfer_window,
+        classifier_type="baseline",
+        time_of_day=time_of_day
+    )
+    
+    # Get filtered map data (based on region/planning_area selections)
+    df_selected = get_real_map_data(
+        region=region if region != "All Regions" else None,
+        planning_area=planning_area if planning_area != "All Planning Areas" else None,
+        delay_duration=delay_duration,
+        transfer_window=transfer_window,
+        classifier_type="baseline",
+        time_of_day=time_of_day
+    )
 
     has_filter = (region and region != "All Regions") or (
         planning_area and planning_area != "All Planning Areas"
@@ -172,45 +366,77 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
     fig = go.Figure()
 
     if not has_filter:
-        fig = px.choropleth_mapbox(
-            df_all,
-            geojson=sg_geojson,
-            locations="planning_area_raw",
-            featureidkey="properties.PLN_AREA_N",
-            color="wrongly_split_pct",
-            labels={"wrongly_split_pct": "% of genuine transfers broken"},
-            color_continuous_scale=[
-                "#eaf2ff",
-                "#bfd6ff",
-                "#7faeff",
-                "#1a56db"
-            ],
-            mapbox_style="carto-positron",
-            center={"lat": 1.3521, "lon": 103.8198},
-            zoom=9.7
-        )
-        fig.update_traces(
-            marker_line_width=0.5,
-            marker_line_color="grey",
-            showscale=False,
-        )
+        # No filter: show all areas, separated into data and no-data regions
+        df_with_data = df_all[df_all['has_data'] == True].copy()
+        df_no_data = df_all[df_all['has_data'] == False].copy()
+        
+        # Trace 1: Areas with data (colored by value)
+        if not df_with_data.empty:
+            fig = px.choropleth_mapbox(
+                df_with_data,
+                geojson=sg_geojson,
+                locations="planning_area_raw",
+                featureidkey="properties.PLN_AREA_N",
+                color="wrongly_split_pct",
+                labels={"wrongly_split_pct": "% of genuine transfers broken"},
+                color_continuous_scale=[
+                    "#eaf2ff",
+                    "#bfd6ff",
+                    "#7faeff",
+                    "#1a56db"
+                ],
+                mapbox_style="carto-positron",
+                center={"lat": 1.3521, "lon": 103.8198},
+                zoom=9.7
+            )
+            fig.update_traces(
+                marker_line_width=0.5,
+                marker_line_color="grey",
+                showscale=False,
+            )
 
-        fig.update_traces(
-            customdata=df_all[["planning_area", "region", "wrongly_split_n", "wrongly_split_pct"]].values,
-            hovertemplate=(
-                "<b>%{customdata[0]}</b><br>"
-                "Region: %{customdata[1]}<br>"
-                "Transfers broken: %{customdata[2]}<br>"
-                "% of transfers: %{customdata[3]}%<extra></extra>"
-            ),
-            marker_line_width=0.5,
-            marker_line_color="grey",
-        )
+            fig.update_traces(
+                customdata=df_with_data[["planning_area", "region", "wrongly_split_n", "wrongly_split_pct"]].values,
+                hovertemplate=(
+                    "<b>%{customdata[0]}</b><br>"
+                    "Region: %{customdata[1]}<br>"
+                    "Transfers broken: %{customdata[2]}<br>"
+                    "% of transfers: %{customdata[3]:.2f}%<extra></extra>"
+                ),
+                marker_line_width=0.5,
+                marker_line_color="grey",
+            )
+        
+        # Trace 2: Areas without data (grey)
+        if not df_no_data.empty:
+            fig.add_trace(
+                go.Choroplethmapbox(
+                    geojson=sg_geojson,
+                    locations=df_no_data["planning_area_raw"],
+                    z=[1] * len(df_no_data),
+                    featureidkey="properties.PLN_AREA_N",
+                    colorscale=[[0, "#d1d5db"], [1, "#d1d5db"]],
+                    showscale=False,
+                    marker_line_width=0.5,
+                    marker_line_color="grey",
+                    customdata=df_no_data[["planning_area", "region"]].values,
+                    hovertemplate=(
+                        "<b>%{customdata[0]}</b><br>"
+                        "Region: %{customdata[1]}<br>"
+                        "No data<extra></extra>"
+                    ),
+                )
+            )
 
     else:
+        # Filter active: grey out unselected, highlight selected (with no-data handling)
+        df_selected_with_data = df_selected[df_selected['has_data'] == True].copy()
+        df_selected_no_data = df_selected[df_selected['has_data'] == False].copy()
+        
         selected_areas = set(df_selected["planning_area_raw"])
         df_other = df_all[~df_all["planning_area_raw"].isin(selected_areas)]
 
+        # Trace 1: Unselected areas (always grey)
         if not df_other.empty:
             fig.add_trace(
                 go.Choroplethmapbox(
@@ -222,51 +448,64 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
                     showscale=False,
                     marker_line_width=0.5,
                     marker_line_color="grey",
-                    customdata=df_other[["planning_area", "region", "wrongly_split_n", "wrongly_split_pct"]].values,
+                    customdata=df_other[["planning_area", "region"]].values,
                     hovertemplate=(
                         "<b>%{customdata[0]}</b><br>"
                         "Region: %{customdata[1]}<br>"
-                        "Transfers broken: %{customdata[2]}<br>"
-                        "% of transfers: %{customdata[3]}%<extra></extra>"
+                        "No data<extra></extra>"
                     ),
                 )
             )
 
-        fig.add_trace(
-            go.Choroplethmapbox(
-                geojson=sg_geojson,
-                locations=df_selected["planning_area_raw"],
-                z=df_selected["wrongly_split_pct"],
-                featureidkey="properties.PLN_AREA_N",
-                colorscale=[
-                    [0.0, "#eaf2ff"],
-                    [0.33, "#bfd6ff"],
-                    [0.66, "#7faeff"],
-                    [1.0, "#1a56db"],
-                ],
-                zmin=df_all["wrongly_split_pct"].min(),
-                zmax=df_all["wrongly_split_pct"].max(),
-                showscale=False,
-                marker_line_width=0.5,
-                marker_line_color="grey",
-                customdata=df_selected[["planning_area", "region", "wrongly_split_n", "wrongly_split_pct"]].values,
-                hovertemplate=(
-                    "<b>%{customdata[0]}</b><br>"
-                    "Region: %{customdata[1]}<br>"
-                    "Transfers broken: %{customdata[2]}<br>"
-                    "% of transfers: %{customdata[3]}%<extra></extra>"
-                ),
+        # Trace 2: Selected areas with data (colored)
+        if not df_selected_with_data.empty:
+            fig.add_trace(
+                go.Choroplethmapbox(
+                    geojson=sg_geojson,
+                    locations=df_selected_with_data["planning_area_raw"],
+                    z=df_selected_with_data["wrongly_split_pct"],
+                    featureidkey="properties.PLN_AREA_N",
+                    colorscale=[
+                        [0.0, "#eaf2ff"],
+                        [0.33, "#bfd6ff"],
+                        [0.66, "#7faeff"],
+                        [1.0, "#1a56db"],
+                    ],
+                    zmin=df_all[df_all['has_data'] == True]["wrongly_split_pct"].min(),
+                    zmax=df_all[df_all['has_data'] == True]["wrongly_split_pct"].max(),
+                    showscale=False,
+                    marker_line_width=0.5,
+                    marker_line_color="grey",
+                    customdata=df_selected_with_data[["planning_area", "region", "wrongly_split_n", "wrongly_split_pct"]].values,
+                    hovertemplate=(
+                        "<b>%{customdata[0]}</b><br>"
+                        "Region: %{customdata[1]}<br>"
+                        "Transfers broken: %{customdata[2]}<br>"
+                        "% of transfers: %{customdata[3]:.2f}%<extra></extra>"
+                    ),
+                )
             )
-        )
-
-    if not has_filter:
-        fig.update_traces(
-            hovertemplate=
-            "<b>%{customdata[0]}</b><br>"
-            "Region: %{customdata[1]}<br>"
-            "Transfers broken: %{customdata[2]}<br>"
-            "% of transfers: %{customdata[3]}%<extra></extra>"
-        )
+        
+        # Trace 3: Selected areas without data (darker grey)
+        if not df_selected_no_data.empty:
+            fig.add_trace(
+                go.Choroplethmapbox(
+                    geojson=sg_geojson,
+                    locations=df_selected_no_data["planning_area_raw"],
+                    z=[1] * len(df_selected_no_data),
+                    featureidkey="properties.PLN_AREA_N",
+                    colorscale=[[0, "#d1d5db"], [1, "#d1d5db"]],
+                    showscale=False,
+                    marker_line_width=0.5,
+                    marker_line_color="grey",
+                    customdata=df_selected_no_data[["planning_area", "region"]].values,
+                    hovertemplate=(
+                        "<b>%{customdata[0]}</b><br>"
+                        "Region: %{customdata[1]}<br>"
+                        "No data<extra></extra>"
+                    ),
+                )
+            )
 
     fig.update_layout(
         mapbox=dict(
@@ -291,12 +530,9 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
 def build_bar_figure(region=None, time_of_day=None, delay_duration=None, transfer_window=45, planning_area=None):
     """
     Builds the Wrongly Split vs Wrongly Merged tradeoff bar chart.
-    Shows the cost and benefit of the selected transfer window.
-
-    TODO: When backend is ready, replace get_placeholder_bar_data() with
-          a real query filtered by (region, time_of_day, delay_duration, transfer_window, planning_area).
+    Shows the cost and benefit of the selected transfer window (as percentages).
     """
-    df = get_placeholder_bar_data(region, planning_area)
+    df = get_real_bar_data(delay_duration, transfer_window, region, planning_area, time_of_day)
     max_count = df["count"].max()
 
     fig = go.Figure([
@@ -304,7 +540,7 @@ def build_bar_figure(region=None, time_of_day=None, delay_duration=None, transfe
             x=df["metric"],
             y=df["count"],
             marker_color=["#dc2626", "#f59e0b"],  # Red for split errors (bad), amber for merge tradeoff
-            text=df["count"],
+            text=[f"{v:.2f}%" for v in df["count"]],
             textposition="outside",
             textfont=dict(size=11, family=FONT_MONO),
             cliponaxis=False,
@@ -314,7 +550,7 @@ def build_bar_figure(region=None, time_of_day=None, delay_duration=None, transfe
     fig.update_layout(
         **{**PLOTLY_LAYOUT, "margin": dict(l=32, r=16, t=40, b=32)},
         xaxis=dict(**AXIS_STYLE),
-        yaxis=dict(**AXIS_STYLE, title="Genuine Transfers", range=[0, max_count * 1.18]),
+        yaxis=dict(**AXIS_STYLE, title="Percentage (%)", range=[0, max_count * 1.18]),
         height=200,
     )
     return fig
@@ -393,17 +629,6 @@ layout = html.Div([
                 },
             ),
         ]),
-        html.Div("DUMMY DATA", style={
-            "fontSize":      "10px",
-            "fontWeight":    "600",
-            "letterSpacing": "0.08em",
-            "color":         C["accent"],
-            "background":    C["accent_soft"],
-            "padding":       "4px 10px",
-            "borderRadius":  "4px",
-            "fontFamily":    FONT_MONO,
-            "alignSelf":     "flex-start",
-        }),
     ], style={
         "display":        "flex",
         "justifyContent": "space-between",
@@ -455,8 +680,8 @@ layout = html.Div([
                     dcc.Dropdown(
                         id="p4-delay-dropdown",
                         options=[{"label": d, "value": d} for d in DELAY_DURATIONS],
-                        placeholder="All durations",
-                        clearable=True,
+                        value="0 minutes",
+                        clearable=False,
                         style={"fontSize": "13px", "width": "160px"},
                     ),
                 ]),
@@ -523,6 +748,17 @@ layout = html.Div([
                             config={"displayModeBar": False},
                             style={"height": "220px"},
                         ),
+                        # Debug info
+                        html.Div(id="p4-debug-info", style={
+                            "fontSize": "11px",
+                            "fontFamily": FONT_MONO,
+                            "background": "#f3f4f6",
+                            "padding": "8px 12px",
+                            "borderRadius": "4px",
+                            "color": "#374151",
+                            "marginTop": "8px",
+                            "lineHeight": "1.5",
+                        }),
                     ], style={
                         "background":   C["surface"],
                         "border":       f"1px solid {C['border']}",
@@ -575,6 +811,7 @@ def update_planning_areas(region):
 @callback(
     Output("p4-map-figure", "figure"),
     Output("p4-bar-figure", "figure"),
+    Output("p4-debug-info", "children"),
     Input("p4-region-dropdown", "value"),
     Input("p4-planning-area-dropdown", "value"),
     Input("p4-time-dropdown", "value"),
@@ -584,5 +821,30 @@ def update_planning_areas(region):
 def update_figures(region, planning_area, time_of_day, delay_duration, transfer_window):
     map_fig = build_map_figure(region, time_of_day, delay_duration, transfer_window, planning_area)
     bar_fig = build_bar_figure(region, time_of_day, delay_duration, transfer_window, planning_area)
-    return map_fig, bar_fig
+    
+    # Get debug info from the query
+    debug_text = ""
+    if DELAY_SIM_DF is None:
+        debug_text = "CSV not loaded"
+    elif delay_duration is None:
+        debug_text = "Select a delay duration"
+    else:
+        try:
+            delay_mins = int(delay_duration.split()[0])
+            result = query_delay_sim(
+                delay_mins=delay_mins,
+                bus_window=transfer_window,
+                classifier_type='baseline',
+                patron='all'
+            )
+            debug_text = (
+                f"Delay: {result['delay_mins']}min | "
+                f"Window: {result['bus_window_mins']}min | "
+                f"Wrongly Split: {result['wrongly_split_pct']:.2f}% | "
+                f"Wrongly Merged: {result['wrongly_merged_pct']:.2f}%"
+            )
+        except Exception as e:
+            debug_text = f"Error: {str(e)}"
+    
+    return map_fig, bar_fig, debug_text
 
