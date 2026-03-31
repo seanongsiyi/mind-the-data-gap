@@ -125,6 +125,16 @@ def query_delay_sim(
     window_journeys     = int(main_row['window_journeys'])     if not pd.isna(main_row['window_journeys'])     else None
     journey_difference  = (window_journeys - classifier_journeys) if (window_journeys and classifier_journeys) else None
 
+    # Calculate True Positives (correctly kept transfers) and True Negatives (correctly split separate journeys)
+    ground_truth_transfer_n = int(main_row['ground_truth_transfer_n']) if not pd.isna(main_row['ground_truth_transfer_n']) else 0
+    ground_truth_new_journey_n = int(main_row['ground_truth_new_journey_n']) if not pd.isna(main_row['ground_truth_new_journey_n']) else 0
+    wrongly_split_n = int(main_row['wrongly_split_pairs'])
+    wrongly_merged_n = int(main_row['wrongly_merged_pairs'])
+    correctly_kept_n = ground_truth_transfer_n - wrongly_split_n
+    correctly_kept_pct = (correctly_kept_n / ground_truth_transfer_n * 100) if ground_truth_transfer_n > 0 else 0.0
+    correctly_split_n = ground_truth_new_journey_n - wrongly_merged_n
+    correctly_split_pct = (correctly_split_n / ground_truth_new_journey_n * 100) if ground_truth_new_journey_n > 0 else 0.0
+
     def get_breakdown(breakdown_type, col_name):
         return (
             sub[sub['breakdown_type'] == breakdown_type][[
@@ -147,8 +157,12 @@ def query_delay_sim(
         'classifier_journeys': classifier_journeys,
         'window_journeys':     window_journeys,
         'journey_difference':  journey_difference,
-        'wrongly_split_n':     int(main_row['wrongly_split_pairs']),
-        'wrongly_merged_n':    int(main_row['wrongly_merged_pairs']),
+        'correctly_kept_n':    correctly_kept_n,
+        'correctly_kept_pct':  correctly_kept_pct,
+        'correctly_split_n':   correctly_split_n,
+        'correctly_split_pct': correctly_split_pct,
+        'wrongly_split_n':     wrongly_split_n,
+        'wrongly_merged_n':    wrongly_merged_n,
         'wrongly_split_pct':   float(main_row['wrongly_split_pair_pct']),
         'wrongly_merged_pct':  float(main_row['wrongly_merged_pair_pct']),
         'by_patron':           get_breakdown('patron',          'patron'),
@@ -263,17 +277,15 @@ def get_real_map_data(
     
     # Fill missing data rows with NaN for values and has_data=False
     df_merged['wrongly_split_n'] = df_merged['wrongly_split_n'].fillna(0)
+    
+    # For areas with 0 pairs but NaN percentage, fill percentage with 0
+    df_merged.loc[(df_merged['wrongly_split_n'] == 0) & (df_merged['wrongly_split_pct'].isna()), 'wrongly_split_pct'] = 0.0
+    
     df_merged['wrongly_split_pct'] = df_merged['wrongly_split_pct'].fillna(np.nan)
     
-    # Mark as has_data only if BOTH wrongly_split_n and wrongly_split_pct are present
-    # (Some areas like Lim Chu Kang have split_n but missing split_pct)
+    # Mark as has_data only if wrongly_split_pct is not NaN
     df_merged['has_data'] = df_merged['has_data'].fillna(False)
     df_merged.loc[df_merged['wrongly_split_pct'].isna(), 'has_data'] = False
-    
-    # Explicitly mark certain areas as no-data (wildlife reserves, etc.)
-    no_data_areas = ['LIM CHU KANG']
-    df_merged.loc[df_merged['planning_area_raw'].isin(no_data_areas), 'has_data'] = False
-    df_merged.loc[df_merged['planning_area_raw'].isin(no_data_areas), 'wrongly_split_pct'] = np.nan
     
     # Apply filters
     if region and region != "All Regions":
@@ -380,7 +392,7 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
                 locations="planning_area_raw",
                 featureidkey="properties.PLN_AREA_N",
                 color="wrongly_split_pct",
-                labels={"wrongly_split_pct": "% of genuine transfers broken"},
+                labels={"wrongly_split_pct": "% of genuine transfers broken in that town"},
                 color_continuous_scale=[
                     "#eaf2ff",
                     "#bfd6ff",
@@ -420,7 +432,7 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
                     locations=df_no_data["planning_area_raw"],
                     z=[1] * len(df_no_data),
                     featureidkey="properties.PLN_AREA_N",
-                    colorscale=[[0, "#d1d5db"], [1, "#d1d5db"]],
+                    colorscale=[[0, "#9ca3af"], [1, "#9ca3af"]],
                     showscale=False,
                     name = '',
                     marker_line_width=0.5,
@@ -626,6 +638,67 @@ def info_box(title, children):
     })
 
 
+def color_legend(min_val=0, max_val=1.12):
+    """Create a color legend showing light blue to dark blue for increasing % of transfers broken, plus no-data grey."""
+    # Calculate 4 evenly spaced values across the range
+    if max_val <= min_val:
+        max_val = min_val + 0.01
+    
+    step = (max_val - min_val) / 3
+    values = [min_val, min_val + step, min_val + 2*step, max_val]
+    
+    colors = ["#eaf2ff", "#bfd6ff", "#7faeff", "#1a56db", "#9ca3af"]
+    labels = [f"{v:.1f}%" for v in values] + ["No data"]
+    
+    legend_items = []
+    for i, (color, label) in enumerate(zip(colors, labels)):
+        legend_items.append(
+            html.Div([
+                html.Div(style={
+                    "width": "20px",
+                    "height": "20px",
+                    "backgroundColor": color,
+                    "border": "1px solid #d1d5db",
+                    "borderRadius": "3px",
+                }),
+                html.Span(label, style={
+                    "fontSize": "12px",
+                    "color": C["secondary"],
+                    "fontFamily": FONT_SANS,
+                }),
+            ], style={
+                "display": "flex",
+                "alignItems": "center",
+                "gap": "8px",
+            })
+        )
+    
+    return html.Div([
+        html.P(
+            "% of genuine transfers broken in that town",
+            style={
+                "fontSize": "11px",
+                "fontWeight": "600",
+                "color": C["muted"],
+                "fontFamily": FONT_MONO,
+                "margin": "0 0 8px 0",
+                "letterSpacing": "0.05em",
+                "textTransform": "uppercase",
+            }
+        ),
+        html.Div(
+            legend_items,
+            style={
+                "display": "flex",
+                "gap": "12px",
+                "flexWrap": "wrap",
+            }
+        ),
+    ], style={
+        "padding": "12px 0",
+    })
+
+
 # ── Page layout ───────────────────────────────────────────────────────────────
 
 layout = html.Div([
@@ -738,20 +811,24 @@ layout = html.Div([
             html.Div([
 
                 # Map
-                html.Div(
-                    dcc.Graph(
-                        id="p4-map-figure",
-                        figure=build_map_figure(),
-                        config={"displayModeBar": False},
-                        style={"height": "400px"},
+                html.Div([
+                    html.Div(
+                        dcc.Graph(
+                            id="p4-map-figure",
+                            figure=build_map_figure(),
+                            config={"displayModeBar": False},
+                            style={"height": "400px"},
+                        ),
+                        style={
+                            "borderRadius": "8px",
+                            "overflow":     "hidden",
+                            "border":       f"1px solid {C['border_light']}",
+                        },
                     ),
-                    style={
-                        "flex":         "1",
-                        "borderRadius": "8px",
-                        "overflow":     "hidden",
-                        "border":       f"1px solid {C['border_light']}",
-                    },
-                ),
+                    html.Div(id="p4-color-legend"),
+                ], style={
+                    "flex": "1",
+                }),
 
                 # Right panel: slider + bar chart
                 html.Div([
@@ -791,7 +868,7 @@ layout = html.Div([
 
                 ], style={"width": "260px", "display": "flex", "flexDirection": "column"}),
 
-            ], style={"display": "flex", "gap": "20px", "alignItems": "flex-start"}),
+            ], style={"display": "flex", "gap": "20px", "alignItems": "stretch"}),
 
         ],
     ),
@@ -828,6 +905,7 @@ def update_planning_areas(region, current_value):
 @callback(
     Output("p4-map-figure", "figure"),
     Output("p4-tradeoff-kpis", "children"),
+    Output("p4-color-legend", "children"),
     Input("p4-region-dropdown", "value"),
     Input("p4-planning-area-dropdown", "value"),
     Input("p4-time-dropdown", "value"),
@@ -838,7 +916,7 @@ def update_figures(region, planning_area, time_of_day, delay_duration, transfer_
     map_fig = build_map_figure(region, time_of_day, delay_duration, transfer_window, planning_area)
 
     if DELAY_SIM_DF is None:
-        return map_fig, html.Div("CSV not loaded"), "CSV not loaded"
+        return map_fig, html.Div("CSV not loaded"), color_legend()
 
     if delay_duration is None:
         delay_mins = 0
@@ -848,6 +926,26 @@ def update_figures(region, planning_area, time_of_day, delay_duration, transfer_
         except (ValueError, IndexError):
             delay_mins = 0
 
+    # Calculate min/max for legend
+    df_all = get_real_map_data(
+        region=None,
+        planning_area=None,
+        delay_duration=delay_duration,
+        transfer_window=transfer_window,
+        classifier_type="baseline",
+        time_of_day=time_of_day
+    )
+    
+    valid_pcts = df_all[df_all['has_data'] == True]['wrongly_split_pct'].dropna()
+    if not valid_pcts.empty:
+        legend_min = valid_pcts.min()
+        legend_max = valid_pcts.max()
+    else:
+        legend_min = 0
+        legend_max = 1.12
+    
+    legend = color_legend(legend_min, legend_max)
+
     try:
         result = query_delay_sim(
             delay_mins=delay_mins,
@@ -856,6 +954,10 @@ def update_figures(region, planning_area, time_of_day, delay_duration, transfer_
             patron="all"
         )
         if (not region or region == "All Regions") and (not planning_area or planning_area == "All Planning Areas"):
+            correctly_kept_n = result["correctly_kept_n"]
+            correctly_kept_pct = result["correctly_kept_pct"]
+            correctly_split_n = result["correctly_split_n"]
+            correctly_split_pct = result["correctly_split_pct"]
             wrongly_split_n = result["wrongly_split_n"]
             wrongly_merged_n = result["wrongly_merged_n"]
             wrongly_split_pct = result["wrongly_split_pct"]
@@ -881,13 +983,26 @@ def update_figures(region, planning_area, time_of_day, delay_duration, transfer_
                 df_region = df_region[df_region["region"] == region]
 
             if df_region.empty:
+                correctly_kept_n = 0
+                correctly_kept_pct = 0.0
+                correctly_split_n = 0
+                correctly_split_pct = 0.0
                 wrongly_split_n = 0
                 wrongly_merged_n = 0
                 wrongly_split_pct = 0.0
                 wrongly_merged_pct = 0.0
             else:
+                # Calculate TP: correctly kept genuine transfers
+                ground_truth_transfer_n = df_region["ground_truth_transfer_n"].sum()
+                ground_truth_new_journey_n = df_region["ground_truth_new_journey_n"].sum()
                 wrongly_split_n = int(df_region["wrongly_split_pairs"].sum())
                 wrongly_merged_n = int(df_region["wrongly_merged_pairs"].sum())
+                
+                correctly_kept_n = int(ground_truth_transfer_n) - wrongly_split_n
+                correctly_kept_pct = (correctly_kept_n / ground_truth_transfer_n * 100) if ground_truth_transfer_n > 0 else 0.0
+                
+                correctly_split_n = int(ground_truth_new_journey_n) - wrongly_merged_n
+                correctly_split_pct = (correctly_split_n / ground_truth_new_journey_n * 100) if ground_truth_new_journey_n > 0 else 0.0
 
                 total_pairs = df_region["n_pairs"].sum()
                 if total_pairs > 0:
@@ -899,15 +1014,27 @@ def update_figures(region, planning_area, time_of_day, delay_duration, transfer_
 
         tradeoff_kpis = html.Div([
             tradeoff_kpi_card(
+                "Transfers correctly identified",
+                f"{correctly_kept_n:,}",
+                f"{correctly_kept_pct:.2f}% of genuine transfers",
+                "#10b981",
+            ),
+            tradeoff_kpi_card(
                 "Genuine transfers broken",
                 f"{wrongly_split_n:,}",
-                f"{wrongly_split_pct:.2f}% of transfers",
+                f"{wrongly_split_pct:.2f}% of genuine transfers",
                 "#dc2626",
-            ),                
+            ),
+            tradeoff_kpi_card(
+                "Separate journeys correctly split",
+                f"{correctly_split_n:,}",
+                f"{correctly_split_pct:.2f}% of separate journeys",
+                "#0ea5e9",
+            ),
             tradeoff_kpi_card(
                 "False transfers created",
                 f"{wrongly_merged_n:,}",
-                f"{wrongly_merged_pct:.2f}% of transfers",
+                f"{wrongly_merged_pct:.2f}% of separate journeys",
                 "#f59e0b",
             ),
             ])
@@ -917,4 +1044,4 @@ def update_figures(region, planning_area, time_of_day, delay_duration, transfer_
     except Exception as e:
         tradeoff_kpis = html.Div("Unable to load tradeoff metrics")
 
-    return map_fig, tradeoff_kpis
+    return map_fig, tradeoff_kpis, legend
