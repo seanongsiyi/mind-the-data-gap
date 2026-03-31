@@ -391,10 +391,13 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
                 center={"lat": 1.3521, "lon": 103.8198},
                 zoom=9.7
             )
+            fig.update_layout(coloraxis_showscale=False)
+            
             fig.update_traces(
                 marker_line_width=0.5,
                 marker_line_color="grey",
                 showscale=False,
+                
             )
 
             fig.update_traces(
@@ -419,6 +422,7 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
                     featureidkey="properties.PLN_AREA_N",
                     colorscale=[[0, "#d1d5db"], [1, "#d1d5db"]],
                     showscale=False,
+                    name = '',
                     marker_line_width=0.5,
                     marker_line_color="grey",
                     customdata=df_no_data[["planning_area", "region"]].values,
@@ -455,17 +459,17 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
                 zmin=0,
                 zmax=1,
                 showscale=False,
+                name = '',
                 marker_line_width=0.5,
                 marker_line_color="grey",
                 customdata=df_display[
-                    ["planning_area", "region", "wrongly_split_n", "wrongly_split_pct", "is_selected"]
+                    ["planning_area", "region", "wrongly_split_n", "wrongly_split_pct"]
                 ].values,
                 hovertemplate=(
                     "<b>%{customdata[0]}</b><br>"
                     "Region: %{customdata[1]}<br>"
                     "Transfers broken: %{customdata[2]}<br>"
                     "% of transfers: %{customdata[3]:.2f}%<br>"
-                    "Selected: %{customdata[4]}<extra></extra>"
                 ),
             )
         )
@@ -519,6 +523,7 @@ def build_bar_figure(region=None, time_of_day=None, delay_duration=None, transfe
     )
     return fig
 
+
 # ── Layout helpers ────────────────────────────────────
 
 def section_label(text):
@@ -532,7 +537,38 @@ def section_label(text):
         "margin":        "0 0 6px 0",
     })
 
+def tradeoff_kpi_card(title, count_value, pct_value, accent_color):
+    return html.Div([
+        html.Div(title, style={
+            "fontSize": "12px",
+            "fontWeight": "600",
+            "color": C["secondary"],
+            "fontFamily": FONT_SANS,
+            "marginBottom": "6px",
+        }),
 
+        html.Div(count_value, style={
+            "fontSize": "30px",
+            "fontWeight": "700",
+            "color": accent_color,
+            "fontFamily": FONT_SANS,
+            "lineHeight": "1.1",
+        }),
+
+        html.Div(pct_value, style={
+            "fontSize": "13px",
+            "color": C["muted"],
+            "fontFamily": FONT_SANS,
+            "marginTop": "4px",
+        }),
+    ], style={
+        "background": C["bg"],
+        "border": f"1px solid {C['border']}",
+        "borderRadius": "10px",
+        "padding": "14px 16px",
+        "marginBottom": "10px",
+    })
+    
 def card(title, subtitle, children):
     return html.Div([
         html.Div([
@@ -562,6 +598,32 @@ def card(title, subtitle, children):
         "padding":      "24px 28px",
         "marginBottom": "20px",
     })
+    
+def info_box(title, children):
+    return html.Div([
+        html.Div(title, style={
+            "fontSize": "12px",
+            "fontWeight": "700",
+            "letterSpacing": "0.04em",
+            "textTransform": "uppercase",
+            "color": C["accent"],
+            "fontFamily": FONT_MONO,
+            "marginBottom": "8px",
+        }),
+        html.Div(children, style={
+            "fontSize": "13px",
+            "color": C["secondary"],
+            "fontFamily": FONT_SANS,
+            "lineHeight": "1.6",
+        }),
+    ], style={
+        "background": C["accent_soft"],
+        "border": f"1px solid {C['border']}",
+        "borderLeft": f"4px solid {C['accent']}",
+        "borderRadius": "8px",
+        "padding": "14px 16px",
+        "marginBottom": "18px",
+    })
 
 
 # ── Page layout ───────────────────────────────────────────────────────────────
@@ -584,7 +646,7 @@ layout = html.Div([
                 "fontFamily": FONT_SANS,
             }),
             html.P(
-                "Simulating transfer window sufficiency under varying delay conditions by region and time of day",
+                "Evaluate transfer window performance under different delay scenarios.",
                 style={
                     "margin":     "4px 0 0",
                     "fontSize":   "13px",
@@ -601,12 +663,24 @@ layout = html.Div([
         "paddingBottom":  "20px",
         "borderBottom":   f"1px solid {C['border']}",
     }),
+    
+    info_box(
+            "How to use this simulation",
+            [
+                html.Div("1. Hover over the map to view detailed metrics for each planning area."),
+                html.Div("2. Select a region or planning area to explore local impact."),
+                html.Div("3. Choose a time of day and delay duration to simulate disruption scenarios."),
+                html.Div("4. Adjust the transfer window to compare the trade-off between genuine transfers broken and false transfers created."),
+            ]
+        ),
 
     # ── Main card: Map + Controls ─────────────────────────────────────────────
     card(
         "Regional Impact Map",
         "Genuine transfers broken by delays, shown as % of all transfers in each region",
         [
+            
+
             # Filter row
             html.Div([
                 html.Div([
@@ -706,23 +780,8 @@ layout = html.Div([
                     # Bar chart
                     html.Div([
                         section_label("Tradeoff Analysis"),
-                        dcc.Graph(
-                            id="p4-bar-figure",
-                            figure=build_bar_figure(),
-                            config={"displayModeBar": False},
-                            style={"height": "220px"},
-                        ),
-                        # Debug info
-                        html.Div(id="p4-debug-info", style={
-                            "fontSize": "11px",
-                            "fontFamily": FONT_MONO,
-                            "background": "#f3f4f6",
-                            "padding": "8px 12px",
-                            "borderRadius": "4px",
-                            "color": "#374151",
-                            "marginTop": "8px",
-                            "lineHeight": "1.5",
-                        }),
+                        html.Div(id="p4-tradeoff-kpis"),
+                        
                     ], style={
                         "background":   C["surface"],
                         "border":       f"1px solid {C['border']}",
@@ -734,17 +793,6 @@ layout = html.Div([
 
             ], style={"display": "flex", "gap": "20px", "alignItems": "flex-start"}),
 
-            html.P(
-                "The map shows the percentage of genuine transfers incorrectly broken under the current delay conditions. "
-                "Use the slider to see how extending the transfer window rescues these broken transfers. "
-                "The tradeoff panel shows the cost: wrongly linked transfers (false discounts) created by too-lenient windows.",
-                style={
-                    "fontSize":   "12px",
-                    "color":      C["secondary"],
-                    "margin":     "16px 0 0",
-                    "fontFamily": FONT_SANS,
-                },
-            ),
         ],
     ),
 
@@ -779,8 +827,7 @@ def update_planning_areas(region, current_value):
 
 @callback(
     Output("p4-map-figure", "figure"),
-    Output("p4-bar-figure", "figure"),
-    Output("p4-debug-info", "children"),
+    Output("p4-tradeoff-kpis", "children"),
     Input("p4-region-dropdown", "value"),
     Input("p4-planning-area-dropdown", "value"),
     Input("p4-time-dropdown", "value"),
@@ -789,31 +836,85 @@ def update_planning_areas(region, current_value):
 )
 def update_figures(region, planning_area, time_of_day, delay_duration, transfer_window):
     map_fig = build_map_figure(region, time_of_day, delay_duration, transfer_window, planning_area)
-    bar_fig = build_bar_figure(region, time_of_day, delay_duration, transfer_window, planning_area)
-    
-    # Get debug info from the query
-    debug_text = ""
+
     if DELAY_SIM_DF is None:
-        debug_text = "CSV not loaded"
-    elif delay_duration is None:
-        debug_text = "Select a delay duration"
+        return map_fig, html.Div("CSV not loaded"), "CSV not loaded"
+
+    if delay_duration is None:
+        delay_mins = 0
     else:
         try:
             delay_mins = int(delay_duration.split()[0])
-            result = query_delay_sim(
-                delay_mins=delay_mins,
-                bus_window=transfer_window,
-                classifier_type='baseline',
-                patron='all'
-            )
-            debug_text = (
-                f"Delay: {result['delay_mins']}min | "
-                f"Window: {result['bus_window_mins']}min | "
-                f"Wrongly Split: {result['wrongly_split_pct']:.2f}% | "
-                f"Wrongly Merged: {result['wrongly_merged_pct']:.2f}%"
-            )
-        except Exception as e:
-            debug_text = f"Error: {str(e)}"
-    
-    return map_fig, bar_fig, debug_text
+        except (ValueError, IndexError):
+            delay_mins = 0
 
+    try:
+        result = query_delay_sim(
+            delay_mins=delay_mins,
+            bus_window=transfer_window,
+            classifier_type="baseline",
+            patron="all"
+        )
+        if (not region or region == "All Regions") and (not planning_area or planning_area == "All Planning Areas"):
+            wrongly_split_n = result["wrongly_split_n"]
+            wrongly_merged_n = result["wrongly_merged_n"]
+            wrongly_split_pct = result["wrongly_split_pct"]
+            wrongly_merged_pct = result["wrongly_merged_pct"]
+
+        else:
+            df_region = result["by_dest_region"].copy()
+
+            meta = get_planning_area_metadata()[["planning_area_raw", "planning_area", "region"]].drop_duplicates()
+
+            df_region = df_region.merge(
+                meta,
+                left_on="dest_region",
+                right_on="planning_area_raw",
+                how="left"
+            )
+
+            if planning_area and planning_area != "All Planning Areas":
+                df_region = df_region[
+                    df_region["planning_area"].str.strip().str.lower() == planning_area.strip().lower()
+                ]
+            elif region and region != "All Regions":
+                df_region = df_region[df_region["region"] == region]
+
+            if df_region.empty:
+                wrongly_split_n = 0
+                wrongly_merged_n = 0
+                wrongly_split_pct = 0.0
+                wrongly_merged_pct = 0.0
+            else:
+                wrongly_split_n = int(df_region["wrongly_split_pairs"].sum())
+                wrongly_merged_n = int(df_region["wrongly_merged_pairs"].sum())
+
+                total_pairs = df_region["n_pairs"].sum()
+                if total_pairs > 0:
+                    wrongly_split_pct = wrongly_split_n / total_pairs * 100
+                    wrongly_merged_pct = wrongly_merged_n / total_pairs * 100
+                else:
+                    wrongly_split_pct = 0.0
+                    wrongly_merged_pct = 0.0
+
+        tradeoff_kpis = html.Div([
+            tradeoff_kpi_card(
+                "Genuine transfers broken",
+                f"{wrongly_split_n:,}",
+                f"{wrongly_split_pct:.2f}% of transfers",
+                "#dc2626",
+            ),                
+            tradeoff_kpi_card(
+                "False transfers created",
+                f"{wrongly_merged_n:,}",
+                f"{wrongly_merged_pct:.2f}% of transfers",
+                "#f59e0b",
+            ),
+            ])
+
+        
+
+    except Exception as e:
+        tradeoff_kpis = html.Div("Unable to load tradeoff metrics")
+
+    return map_fig, tradeoff_kpis
