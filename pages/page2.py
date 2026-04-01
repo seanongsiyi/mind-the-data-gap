@@ -97,7 +97,7 @@ def query_delay_sim(
         raise ValueError("Delay simulation data not loaded. Missing data/delay_sim_results.csv")
 
     valid_delays  = [0, 5, 10, 15, 20]
-    valid_windows = list(range(35, 65, 5))
+    valid_windows = list(range(30, 60, 5))
     valid_specs   = ['baseline', 'lenient', 'strict']
 
     if delay_mins      not in valid_delays:  raise ValueError(f"delay_mins must be one of {valid_delays}")
@@ -128,8 +128,8 @@ def query_delay_sim(
     # Calculate True Positives (correctly kept transfers) and True Negatives (correctly split separate journeys)
     ground_truth_transfer_n = int(main_row['ground_truth_transfer_n']) if not pd.isna(main_row['ground_truth_transfer_n']) else 0
     ground_truth_new_journey_n = int(main_row['ground_truth_new_journey_n']) if not pd.isna(main_row['ground_truth_new_journey_n']) else 0
-    wrongly_split_n = int(main_row['wrongly_split_pairs'])
-    wrongly_merged_n = int(main_row['wrongly_merged_pairs'])
+    wrongly_split_n = int(main_row['wrongly_split_n'])
+    wrongly_merged_n = int(main_row['wrongly_merged_n'])
     correctly_kept_n = ground_truth_transfer_n - wrongly_split_n
     correctly_kept_pct = (correctly_kept_n / ground_truth_transfer_n * 100) if ground_truth_transfer_n > 0 else 0.0
     correctly_split_n = ground_truth_new_journey_n - wrongly_merged_n
@@ -140,12 +140,12 @@ def query_delay_sim(
             sub[sub['breakdown_type'] == breakdown_type][[
                 'breakdown_value', 'n_pairs', 'n_cards',
                 'classifier_journeys', 'window_journeys',
-                'wrongly_split_pairs',       'wrongly_merged_pairs',
-                'wrongly_split_pair_pct',     'wrongly_merged_pair_pct',
+                'wrongly_split_n',       'wrongly_merged_n',
+                'wrongly_split_pct',     'wrongly_merged_pct',
                 'wrongly_split_pct_all', 'wrongly_merged_pct_all',
             ]]
             .rename(columns={'breakdown_value': col_name})
-            .sort_values('wrongly_split_pair_pct', ascending=False)
+            .sort_values('wrongly_split_pct', ascending=False)
             .reset_index(drop=True)
         )
 
@@ -163,8 +163,8 @@ def query_delay_sim(
         'correctly_split_pct': correctly_split_pct,
         'wrongly_split_n':     wrongly_split_n,
         'wrongly_merged_n':    wrongly_merged_n,
-        'wrongly_split_pct':   float(main_row['wrongly_split_pair_pct']),
-        'wrongly_merged_pct':  float(main_row['wrongly_merged_pair_pct']),
+        'wrongly_split_pct':   float(main_row['wrongly_split_pct']),
+        'wrongly_merged_pct':  float(main_row['wrongly_merged_pct']),
         'by_patron':           get_breakdown('patron',          'patron'),
         'by_dest_region':      get_breakdown('dest_region',     'dest_region'),
         'by_orig_region':      get_breakdown('orig_region',     'orig_region'),
@@ -257,10 +257,10 @@ def get_real_map_data(
     # Rename breakdown_value to planning_area_raw
     if not df_dest_region.empty:
         df_dest_region = df_dest_region.rename(columns={'breakdown_value': 'planning_area_raw'})
-        df_dest_region = df_dest_region[['planning_area_raw', 'wrongly_split_pairs', 'wrongly_split_pair_pct']].copy()
+        df_dest_region = df_dest_region[['planning_area_raw', 'wrongly_split_n', 'wrongly_split_pct']].copy()
         df_dest_region = df_dest_region.rename(columns={
-            'wrongly_split_pairs': 'wrongly_split_n',
-            'wrongly_split_pair_pct': 'wrongly_split_pct'
+            'wrongly_split_n': 'wrongly_split_n',
+            'wrongly_split_pct': 'wrongly_split_pct'
         })
         df_dest_region['has_data'] = True
     else:
@@ -995,8 +995,8 @@ def update_figures(region, planning_area, time_of_day, delay_duration, transfer_
                 # Calculate TP: correctly kept genuine transfers
                 ground_truth_transfer_n = df_region["ground_truth_transfer_n"].sum()
                 ground_truth_new_journey_n = df_region["ground_truth_new_journey_n"].sum()
-                wrongly_split_n = int(df_region["wrongly_split_pairs"].sum())
-                wrongly_merged_n = int(df_region["wrongly_merged_pairs"].sum())
+                wrongly_split_n = int(df_region["wrongly_split_n"].sum())
+                wrongly_merged_n = int(df_region["wrongly_merged_n"].sum())
                 
                 correctly_kept_n = int(ground_truth_transfer_n) - wrongly_split_n
                 correctly_kept_pct = (correctly_kept_n / ground_truth_transfer_n * 100) if ground_truth_transfer_n > 0 else 0.0
