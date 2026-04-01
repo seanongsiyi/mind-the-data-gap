@@ -599,6 +599,117 @@ def build_bar_figure(region=None, time_of_day=None, delay_duration=None, transfe
     return fig
 
 
+def get_patron_kpi_data(delay_duration=None, transfer_window=45):
+    """Get patron-level KPI data for grouped bar chart."""
+    if DELAY_SIM_DF is None:
+        return pd.DataFrame()
+    
+    # Parse delay_duration
+    if delay_duration:
+        try:
+            delay_mins = int(delay_duration.split()[0])
+        except (ValueError, IndexError):
+            delay_mins = 0
+    else:
+        delay_mins = 0
+    
+    try:
+        result = query_delay_sim(
+            delay_mins=delay_mins,
+            bus_window=transfer_window,
+            classifier_type='baseline',
+            patron='all'
+        )
+    except:
+        return pd.DataFrame()
+    
+    df_patron = result['by_patron'].copy()
+    
+    if df_patron.empty:
+        return pd.DataFrame()
+    
+    # Calculate 4 KPIs for each patron
+    kpi_data = []
+    for _, row in df_patron.iterrows():
+        patron = row['patron']
+        ground_truth_transfer_n = row['ground_truth_transfer_n']
+        ground_truth_new_journey_n = row['ground_truth_new_journey_n']
+        wrongly_split_n = row['wrongly_split_n']
+        wrongly_merged_n = row['wrongly_merged_n']
+        
+        correctly_kept_n = int(ground_truth_transfer_n) - wrongly_split_n
+        correctly_kept_pct = (correctly_kept_n / ground_truth_transfer_n * 100) if ground_truth_transfer_n > 0 else 0.0
+        
+        correctly_split_n = int(ground_truth_new_journey_n) - wrongly_merged_n
+        correctly_split_pct = (correctly_split_n / ground_truth_new_journey_n * 100) if ground_truth_new_journey_n > 0 else 0.0
+        
+        kpi_data.append({
+            'patron': patron,
+            'Transfers Correctly Identified (%)': correctly_kept_pct,
+            'Genuine Transfers Broken (%)': row['wrongly_split_pct'],
+            'Separate Journeys Correctly Split (%)': correctly_split_pct,
+            'False Transfers Created (%)': row['wrongly_merged_pct'],
+        })
+    
+    return pd.DataFrame(kpi_data)
+
+
+def build_patron_chart(delay_duration=None, transfer_window=45):
+    """
+    Builds a grouped bar chart comparing 4 KPIs across patron types.
+    Each patron has 4 bars side-by-side.
+    """
+    df = get_patron_kpi_data(delay_duration, transfer_window)
+    
+    if df.empty:
+        return go.Figure().add_annotation(text="No patron data available")
+    
+    metrics = [
+        'Transfers Correctly Identified (%)',
+        'Genuine Transfers Broken (%)',
+        'Separate Journeys Correctly Split (%)',
+        'False Transfers Created (%)',
+    ]
+    colors = ['#10b981', '#dc2626', '#0ea5e9', '#f59e0b']
+    
+    fig = go.Figure()
+    
+    for metric, color in zip(metrics, colors):
+        fig.add_trace(go.Bar(
+            x=df['patron'],
+            y=df[metric],
+            name=metric,
+            marker_color=color,
+            text=[f"{v:.1f}%" for v in df[metric]],
+            textposition="outside",
+            textfont=dict(size=10, family=FONT_MONO),
+        ))
+    
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family=FONT_SANS, color=C["text"], size=12),
+        margin=dict(l=48, r=24, t=24, b=48),
+        xaxis=dict(**AXIS_STYLE, title="Patron Type"),
+        yaxis=dict(**AXIS_STYLE, title="Percentage (%)"),
+        barmode='group',
+        height=300,
+        legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01,
+            bgcolor="rgba(255,255,255,0.8)",
+            bordercolor=C["border"],
+            borderwidth=1,
+            font=dict(size=10),
+        ),
+    )
+    
+    return fig
+
+
 # ── Layout helpers ────────────────────────────────────
 
 def section_label(text):
@@ -936,6 +1047,22 @@ layout = html.Div([
         ],
     ),
 
+    # ── Patron Comparison Card ─────────────────────────────────────────────
+    card(
+        "Patron Impact Comparison",
+        "How different patron types are affected by the transfer window setting",
+        [
+            html.Div(
+                dcc.Graph(
+                    id="p4-patron-chart",
+                    figure=build_patron_chart(),
+                    config={"displayModeBar": False},
+                    style={"height": "350px"},
+                ),
+            ),
+        ],
+    ),
+
 ], style={
     "background":  C["bg"],
     "minHeight":   "100vh",
@@ -969,6 +1096,7 @@ def update_planning_areas(region, current_value):
     Output("p4-map-figure", "figure"),
     Output("p4-tradeoff-kpis", "children"),
     Output("p4-color-legend", "children"),
+    Output("p4-patron-chart", "figure"),
     Input("p4-region-dropdown", "value"),
     Input("p4-planning-area-dropdown", "value"),
     Input("p4-time-dropdown", "value"),
@@ -1097,9 +1225,10 @@ def update_figures(region, planning_area, time_of_day, delay_duration, transfer_
             ),
             ])
 
-        
+        patron_fig = build_patron_chart(delay_duration, transfer_window)
 
     except Exception as e:
         tradeoff_kpis = html.Div("Unable to load tradeoff metrics")
+        patron_fig = build_patron_chart(delay_duration, transfer_window)
 
-    return map_fig, tradeoff_kpis, legend
+    return map_fig, tradeoff_kpis, legend, patron_fig
