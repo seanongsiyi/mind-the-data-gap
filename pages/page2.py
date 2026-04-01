@@ -8,11 +8,58 @@ import json
 from pathlib import Path
 
 # ── Load delay simulation data ────────────────────────────────────────────────
-DELAY_SIM_CSV_PATH = Path('data/delay_sim_results.csv')
+
+# ── Load / prepare delay simulation data ─────────────────────────────────────
+
+INPUT_PATH = Path("data/final_delays_updated.csv")
+OUTPUT_PATH = Path("data/final_cleaned_delay_sim_results.csv")
+
+
+def hour_to_bucket(hour):
+    if pd.isna(hour):
+        return None
+
+    try:
+        hour = int(hour)
+    except (ValueError, TypeError):
+        return None
+
+    if 6 <= hour <= 8:
+        return "Morning Peak (6am–9am)"
+    elif 9 <= hour <= 16:
+        return "Off-Peak (9am–5pm)"
+    elif 17 <= hour <= 19:
+        return "Evening Peak (5pm–8pm)"
+    elif 20 <= hour <= 23:
+        return "Night (8pm–12am)"
+    else:
+        return None
+
+
+def prepare_delay_sim_csv():
+    if not INPUT_PATH.exists():
+        print(f"Raw CSV not found: {INPUT_PATH}")
+        return
+
+    df = pd.read_csv(INPUT_PATH, low_memory=False)
+
+    df["time_bucket"] = None
+
+    mask = df["breakdown_type"] == "hour_x_dest_region"
+    df.loc[mask, "time_bucket"] = df.loc[mask, "breakdown_value"].apply(hour_to_bucket)
+
+    df.to_csv(OUTPUT_PATH, index=False)
+    print(f"Prepared cleaned CSV: {OUTPUT_PATH}")
+
+
+prepare_delay_sim_csv()
+
+DELAY_SIM_CSV_PATH = OUTPUT_PATH
 if DELAY_SIM_CSV_PATH.exists():
-    DELAY_SIM_DF = pd.read_csv(DELAY_SIM_CSV_PATH)
+    DELAY_SIM_DF = pd.read_csv(DELAY_SIM_CSV_PATH, low_memory=False)
 else:
     DELAY_SIM_DF = None
+
 
 dash.register_page(__name__, path="/page-4", name="Delay Simulation")
 
