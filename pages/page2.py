@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 
 # ── Load delay simulation data ────────────────────────────────────────────────
-DELAY_SIM_CSV_PATH = Path('data/delay_sim_results.csv')
+DELAY_SIM_CSV_PATH = Path('data/final_delays_updated.csv')
 if DELAY_SIM_CSV_PATH.exists():
     DELAY_SIM_DF = pd.read_csv(DELAY_SIM_CSV_PATH)
 else:
@@ -97,7 +97,7 @@ def query_delay_sim(
         raise ValueError("Delay simulation data not loaded. Missing data/delay_sim_results.csv")
 
     valid_delays  = [0, 5, 10, 15, 20]
-    valid_windows = list(range(30, 60, 5))
+    valid_windows = list(range(30, 65, 5))
     valid_specs   = ['baseline', 'lenient', 'strict']
 
     if delay_mins      not in valid_delays:  raise ValueError(f"delay_mins must be one of {valid_delays}")
@@ -140,6 +140,7 @@ def query_delay_sim(
             sub[sub['breakdown_type'] == breakdown_type][[
                 'breakdown_value', 'n_pairs', 'n_cards',
                 'classifier_journeys', 'window_journeys',
+                'ground_truth_transfer_n', 'ground_truth_new_journey_n',
                 'wrongly_split_n',       'wrongly_merged_n',
                 'wrongly_split_pct',     'wrongly_merged_pct',
                 'wrongly_split_pct_all', 'wrongly_merged_pct_all',
@@ -299,41 +300,6 @@ def get_real_map_data(
     return df_merged[['region', 'planning_area_raw', 'planning_area', 'wrongly_split_n', 'wrongly_split_pct', 'has_data']]
 
 
-def get_real_bar_data(delay_duration=None, transfer_window=45, region=None, planning_area=None, time_of_day=None):
-    """Get real bar data from delay simulation results (percentages)."""
-    if DELAY_SIM_DF is None:
-        raise ValueError("Delay simulation data not loaded. Missing data/delay_sim_results.csv")
-    
-    # Parse delay_duration string to minutes (e.g. "10 minutes" -> 10)
-    # Default to 0 if no delay_duration filter selected
-    if delay_duration:
-        try:
-            delay_mins = int(delay_duration.split()[0])
-        except (ValueError, IndexError):
-            delay_mins = 0
-    else:
-        delay_mins = 0
-    
-    result = query_delay_sim(
-        delay_mins=delay_mins,
-        bus_window=transfer_window,
-        classifier_type='baseline',
-        patron='all'
-    )
-    
-    wrongly_split_pct = result['wrongly_split_pct']
-    wrongly_merged_pct = result['wrongly_merged_pct']
-    
-    df = pd.DataFrame({
-        'metric': ['True transfers broken (%)', 'False transfers created (%)'],
-        'count': [wrongly_split_pct, wrongly_merged_pct],
-    })
-    
-    order = ['True transfers broken (%)', 'False transfers created (%)']
-    df['metric'] = pd.Categorical(df['metric'], categories=order, ordered=True)
-    df = df.sort_values('metric')
-    
-    return df
 
 
 # ── Figure builders ───────────────────────────────────────────────────────────
@@ -504,35 +470,6 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
         )
     )
     
-    return fig
-
-
-def build_bar_figure(region=None, time_of_day=None, delay_duration=None, transfer_window=45, planning_area=None):
-    """
-    Builds the Wrongly Split vs Wrongly Merged tradeoff bar chart.
-    Shows the cost and benefit of the selected transfer window (as percentages).
-    """
-    df = get_real_bar_data(delay_duration, transfer_window, region, planning_area, time_of_day)
-    max_count = df["count"].max()
-
-    fig = go.Figure([
-        go.Bar(
-            x=df["metric"],
-            y=df["count"],
-            marker_color=["#dc2626", "#f59e0b"],  # Red for split errors (bad), amber for merge tradeoff
-            text=[f"{v:.2f}%" for v in df["count"]],
-            textposition="outside",
-            textfont=dict(size=11, family=FONT_MONO),
-            cliponaxis=False,
-        )
-    ])
-
-    fig.update_layout(
-        **{**PLOTLY_LAYOUT, "margin": dict(l=32, r=16, t=40, b=32)},
-        xaxis=dict(**AXIS_STYLE),
-        yaxis=dict(**AXIS_STYLE, title="Percentage (%)", range=[0, max_count * 1.18]),
-        height=200,
-    )
     return fig
 
 
