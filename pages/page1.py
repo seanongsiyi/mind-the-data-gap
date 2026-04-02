@@ -1,68 +1,27 @@
 import dash
-from dash import html
-
-dash.register_page(__name__,path="/page-1", name = "Analysis Page")
-
-layout = html.Div([
-    html.H1("This is Page 1"),
-    html.P("Welcome to the side page content.")
-])
-
 from dash import html, dcc, Input, Output, callback
 import plotly.graph_objects as go
+import plotly.express as px
 import pandas as pd
 import numpy as np
+import os
+import json
 
 dash.register_page(__name__, path="/page-1", name="Visualisation Suite")
 
-# ── Dummy Data ────────────────────────────────────────────────────────────────
+# ── Load Real Data ────────────────────────────────────────────────────────────
 
-np.random.seed(42)
-n = 1200
+current_dir = os.path.dirname(__file__)
 
-commuter_types = np.random.choice(["Adult", "Student", "Senior"], size=n, p=[0.55, 0.30, 0.15])
-time_of_day    = np.random.choice(["Morning Peak", "Off-Peak", "Evening Peak"], size=n, p=[0.35, 0.35, 0.30])
+df_time   = pd.read_csv(os.path.join(current_dir, "..", "data", "trf_time_distribution.csv"))
+df_region = pd.read_csv(os.path.join(current_dir, "..", "data", "trf_region_pair.csv"))
 
-transfer_times = []
-for ct, tod in zip(commuter_types, time_of_day):
-    base  = {"Adult": 6, "Student": 8, "Senior": 12}[ct]
-    noise = {"Morning Peak": 3, "Off-Peak": 2, "Evening Peak": 4}[tod]
-    transfer_times.append(max(1, np.random.normal(base, noise)))
+with open(os.path.join(current_dir, "..", "data", "singapore_planning_areas.geojson")) as f:
+    geojson = json.load(f)
 
-df = pd.DataFrame({
-    "commuter_type": commuter_types,
-    "time_of_day":   time_of_day,
-    "transfer_time": transfer_times,
-})
-
-stations = [
-    "Jurong East", "Raffles Place", "City Hall", "Dhoby Ghaut",
-    "Outram Park", "Bugis", "Lavender", "Paya Lebar",
-    "Tampines", "Bedok", "Toa Payoh", "Ang Mo Kio",
-]
-np.random.seed(7)
-transfer_counts = np.random.randint(200, 2000, size=(len(stations), len(stations)))
-np.fill_diagonal(transfer_counts, 0)
-transfer_counts = (transfer_counts + transfer_counts.T) // 2
-
-dow     = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-ts_data = []
-for d in dow:
-    for h in range(24):
-        peak = 1.0
-        if d in ["Mon", "Tue", "Wed", "Thu", "Fri"]:
-            if 7 <= h <= 9:             peak = 1.8
-            elif 17 <= h <= 19:         peak = 1.6
-            elif 22 <= h or h <= 5:     peak = 0.5
-        else:
-            if 10 <= h <= 14:           peak = 1.3
-            elif 22 <= h or h <= 6:     peak = 0.4
-        ts_data.append({
-            "day":  d,
-            "hour": h,
-            "avg_transfer_time": round(max(2, np.random.normal(7 * peak, 1.2)), 2),
-        })
-df_ts = pd.DataFrame(ts_data)
+# Normalise region names to uppercase to match geojson PLN_AREA_N
+df_region["orig_region"] = df_region["orig_region"].str.upper().str.strip()
+df_region["dest_region"] = df_region["dest_region"].str.upper().str.strip()
 
 # ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -75,12 +34,15 @@ C = {
     "accent_soft":  "#eff4ff",
     "text":         "#111827",
     "secondary":    "#6b7280",
-    "Adult":        "#1a56db",
-    "Student":      "#0e9f6e",
-    "Senior":       "#d97706",
-    "Morning Peak": "#e02424",
-    "Off-Peak":     "#1a56db",
-    "Evening Peak": "#d97706",
+    "20-59":        "#e02424",
+    "60+":          "#d97706",
+    "7-19":         "#7e3af2",
+}
+
+AGE_COLORS = {
+    "20-59": "#e02424",
+    "60+":   "#d97706",
+    "7-19":  "#7e3af2",
 }
 
 FONT_SANS = "'Inter', 'Helvetica Neue', sans-serif"
@@ -108,62 +70,12 @@ AXIS_STYLE = dict(
 
 # ── Chart builders ────────────────────────────────────────────────────────────
 
-def build_histogram(commuter_filter, tod_filter):
-    filtered = df.copy()
-    if commuter_filter:
-        filtered = filtered[filtered["commuter_type"].isin(commuter_filter)]
-    if tod_filter:
-        filtered = filtered[filtered["time_of_day"].isin(tod_filter)]
+def build_timeseries(age_filter):
+    groups   = age_filter or df_time["age_group"].unique().tolist()
+    filtered = df_time[df_time["age_group"].isin(groups)]
 
     fig = go.Figure()
-    for ct in (commuter_filter or ["Adult", "Student", "Senior"]):
-        sub = filtered[filtered["commuter_type"] == ct]["transfer_time"]
-        if len(sub) == 0:
-            continue
-        fig.add_trace(go.Histogram(
-            x=sub, name=ct, opacity=0.7,
-            marker_color=C.get(ct, C["accent"]),
-            xbins=dict(size=1),
-        ))
-    fig.update_layout(
-        **PLOTLY_LAYOUT,
-        barmode="overlay",
-        xaxis=dict(**AXIS_STYLE, title="Transfer Time (min)"),
-        yaxis=dict(**AXIS_STYLE, title="Count"),
-    )
-    return fig
 
-
-def build_heatmap():
-    fig = go.Figure(go.Heatmap(
-        z=transfer_counts,
-        x=stations,
-        y=stations,
-        colorscale=[
-            [0.0, "#eff4ff"],
-            [0.5, "#76a9fa"],
-            [1.0, "#1a56db"],
-        ],
-        showscale=True,
-        hoverongaps=False,
-        colorbar=dict(
-            outlinewidth=0,
-            tickfont=dict(size=11, color=C["secondary"]),
-        ),
-    ))
-    fig.update_layout(
-        **PLOTLY_LAYOUT,
-        xaxis=dict(**AXIS_STYLE, tickangle=-40),
-        yaxis=dict(**AXIS_STYLE),
-    )
-    return fig
-
-
-def build_timeseries(selected_days):
-    days  = selected_days or dow
-    pivot = df_ts[df_ts["day"].isin(days)].groupby("hour")["avg_transfer_time"].mean().reset_index()
-
-    fig = go.Figure()
     for band_start, band_end, label in [(7, 9, "AM Peak"), (17, 19, "PM Peak")]:
         fig.add_vrect(
             x0=band_start, x1=band_end,
@@ -173,17 +85,19 @@ def build_timeseries(selected_days):
             annotation_position="top left",
             annotation_font=dict(size=11, color=C["secondary"]),
         )
-    fig.add_trace(go.Scatter(
-        x=pivot["hour"],
-        y=pivot["avg_transfer_time"],
-        mode="lines+markers",
-        line=dict(color=C["accent"], width=2, shape="spline"),
-        marker=dict(size=5, color=C["accent"],
-                    line=dict(color="#ffffff", width=1.5)),
-        fill="tozeroy",
-        fillcolor="rgba(26,86,219,0.06)",
-        name="Avg Transfer Time",
-    ))
+
+    for grp in groups:
+        sub = filtered[filtered["age_group"] == grp].sort_values("hour_of_day")
+        fig.add_trace(go.Scatter(
+            x=sub["hour_of_day"],
+            y=sub["avg_transfer_time_mins"],
+            mode="lines+markers",
+            name=grp,
+            line=dict(color=AGE_COLORS.get(grp, C["accent"]), width=2, shape="spline"),
+            marker=dict(size=5, color=AGE_COLORS.get(grp, C["accent"]),
+                        line=dict(color="#ffffff", width=1.5)),
+        ))
+
     fig.update_layout(
         **PLOTLY_LAYOUT,
         xaxis=dict(
@@ -193,6 +107,102 @@ def build_timeseries(selected_days):
             ticktext=[f"{h:02d}:00" for h in range(0, 24, 2)],
         ),
         yaxis=dict(**AXIS_STYLE, title="Avg Transfer Time (min)"),
+    )
+    return fig
+
+
+def build_volume_bar(age_filter):
+    groups   = age_filter or df_time["age_group"].unique().tolist()
+    filtered = df_time[df_time["age_group"].isin(groups)]
+
+    fig = go.Figure()
+    for grp in groups:
+        sub = filtered[filtered["age_group"] == grp].sort_values("hour_of_day")
+        fig.add_trace(go.Bar(
+            x=sub["hour_of_day"],
+            y=sub["count"],
+            name=grp,
+            marker_color=AGE_COLORS.get(grp, C["accent"]),
+            opacity=0.85,
+        ))
+
+    fig.update_layout(
+        **PLOTLY_LAYOUT,
+        barmode="stack",
+        xaxis=dict(
+            **AXIS_STYLE,
+            title="Hour of Day",
+            tickvals=list(range(0, 24, 2)),
+            ticktext=[f"{h:02d}:00" for h in range(0, 24, 2)],
+        ),
+        yaxis=dict(**AXIS_STYLE, title="Transfer Count"),
+    )
+    return fig
+
+
+def build_map_figure(origin, hour_filter):
+    filtered = df_region.copy()
+
+    if hour_filter:
+        filtered = filtered[filtered["hour_of_day"].isin(hour_filter)]
+
+    if origin:
+        filtered = filtered[filtered["orig_region"] == origin]
+        agg = filtered.groupby("dest_region")["count"].sum().reset_index()
+        agg.columns = ["region", "count"]
+        # Also include the origin itself with 0 so it renders on map
+        origin_row = pd.DataFrame([{"region": origin, "count": 0}])
+        agg = pd.concat([agg, origin_row], ignore_index=True).drop_duplicates("region")
+    else:
+        # No origin selected: show total outbound volume per region
+        agg = filtered.groupby("orig_region")["count"].sum().reset_index()
+        agg.columns = ["region", "count"]
+
+    fig = px.choropleth_mapbox(
+        agg,
+        geojson=geojson,
+        locations="region",
+        featureidkey="properties.PLN_AREA_N",
+        color="count",
+        color_continuous_scale=[
+            [0.0, "#eff4ff"],
+            [0.5, "#76a9fa"],
+            [1.0, "#1a56db"],
+        ],
+        mapbox_style="carto-positron",
+        zoom=10,
+        center={"lat": 1.3521, "lon": 103.8198},
+        opacity=0.7,
+        hover_name="region",
+        hover_data={"count": True, "region": False},
+        labels={"count": "Transfer Volume"},
+    )
+
+    # Highlight selected origin region in red outline
+    if origin:
+        origin_geom = [f for f in geojson["features"]
+                       if f["properties"]["PLN_AREA_N"] == origin]
+        if origin_geom:
+            fig.add_trace(go.Choroplethmapbox(
+                geojson={"type": "FeatureCollection", "features": origin_geom},
+                locations=[origin],
+                featureidkey="properties.PLN_AREA_N",
+                z=[1],
+                colorscale=[[0, "rgba(0,0,0,0)"], [1, "rgba(0,0,0,0)"]],
+                showscale=False,
+                marker=dict(line=dict(color="#e02424", width=2)),
+                hoverinfo="skip",
+                name="Selected Origin",
+            ))
+
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=0, r=0, t=0, b=0),
+        coloraxis_colorbar=dict(
+            title="Volume",
+            tickfont=dict(size=11, color=C["secondary"]),
+            outlinewidth=0,
+        ),
     )
     return fig
 
@@ -241,9 +251,9 @@ def card(title, subtitle, children):
                 "fontFamily": FONT_SANS,
             }),
         ], style={
-            "marginBottom": "20px",
+            "marginBottom":  "20px",
             "paddingBottom": "16px",
-            "borderBottom": f"1px solid {C['border_light']}",
+            "borderBottom":  f"1px solid {C['border_light']}",
         }),
         *children,
     ], style={
@@ -254,6 +264,12 @@ def card(title, subtitle, children):
         "marginBottom": "20px",
     })
 
+
+# ── Derive filter options ─────────────────────────────────────────────────────
+
+age_groups   = sorted(df_time["age_group"].unique().tolist())
+all_hours    = sorted(df_region["hour_of_day"].unique().tolist())
+all_regions  = sorted(df_region["orig_region"].unique().tolist())
 
 # ── Page layout ───────────────────────────────────────────────────────────────
 
@@ -284,96 +300,26 @@ layout = html.Div([
                 },
             ),
         ]),
-        html.Div("DUMMY DATA", style={
-            "fontSize":      "10px",
-            "fontWeight":    "600",
-            "letterSpacing": "0.08em",
-            "color":         C["accent"],
-            "background":    C["accent_soft"],
-            "padding":       "4px 10px",
-            "borderRadius":  "4px",
-            "fontFamily":    FONT_MONO,
-            "alignSelf":     "flex-start",
-        }),
     ], style={
-        "display":        "flex",
-        "justifyContent": "space-between",
-        "alignItems":     "flex-start",
-        "marginBottom":   "28px",
-        "paddingBottom":  "20px",
-        "borderBottom":   f"1px solid {C['border']}",
+        "display":       "flex",
+        "alignItems":    "flex-start",
+        "marginBottom":  "28px",
+        "paddingBottom": "20px",
+        "borderBottom":  f"1px solid {C['border']}",
     }),
 
-    # ── 1. Transfer Time Distributions ────────────────────────────────────────
+    # ── 1. Avg Transfer Time by Hour ──────────────────────────────────────────
     card(
-        "Transfer Time Distributions",
-        "Time intervals between consecutive taps, segmented by commuter type and period",
+        "Average Transfer Time by Hour",
+        "Mean transfer completion time per hour of day, segmented by age group",
         [
             filter_bar([
                 html.Div([
-                    section_label("Commuter Type"),
+                    section_label("Age Group"),
                     dcc.Checklist(
-                        id="filter-commuter",
-                        options=[{"label": f"  {c}", "value": c}
-                                 for c in ["Adult", "Student", "Senior"]],
-                        value=["Adult", "Student", "Senior"],
-                        inline=True,
-                        style={"color": C["text"], "fontSize": "13px", "fontFamily": FONT_SANS},
-                        inputStyle={"marginRight": "5px", "accentColor": C["accent"]},
-                    ),
-                ]),
-                html.Div([
-                    section_label("Time of Day"),
-                    dcc.Checklist(
-                        id="filter-tod",
-                        options=[{"label": f"  {t}", "value": t}
-                                 for t in ["Morning Peak", "Off-Peak", "Evening Peak"]],
-                        value=["Morning Peak", "Off-Peak", "Evening Peak"],
-                        inline=True,
-                        style={"color": C["text"], "fontSize": "13px", "fontFamily": FONT_SANS},
-                        inputStyle={"marginRight": "5px", "accentColor": C["accent"]},
-                    ),
-                ]),
-            ]),
-            dcc.Graph(id="hist-chart", config={"displayModeBar": False},
-                      style={"height": "360px"}),
-            html.P(
-                "Overlapping distributions reveal whether transfer times follow expected patterns "
-                "and identify natural breakpoints that justify different transfer windows.",
-                style={"fontSize": "12px", "color": C["secondary"],
-                       "margin": "12px 0 0", "fontFamily": FONT_SANS},
-            ),
-        ],
-    ),
-
-    # ── 2. Spatial Transfer Analysis ──────────────────────────────────────────
-    card(
-        "Spatial Transfer Analysis",
-        "Transfer volumes between interchange stations — identifies high-traffic pairs",
-        [
-            dcc.Graph(id="heatmap-chart", figure=build_heatmap(),
-                      config={"displayModeBar": False}, style={"height": "480px"}),
-            html.P(
-                "Higher-intensity cells indicate station pairs with elevated transfer volumes, "
-                "where extended transfer windows may be warranted due to distance or congestion.",
-                style={"fontSize": "12px", "color": C["secondary"],
-                       "margin": "12px 0 0", "fontFamily": FONT_SANS},
-            ),
-        ],
-    ),
-
-    # ── 3. Temporal Pattern Detection ─────────────────────────────────────────
-    card(
-        "Temporal Pattern Detection",
-        "Average transfer completion time by hour of day — shaded bands indicate peak periods",
-        [
-            filter_bar([
-                html.Div([
-                    section_label("Day of Week"),
-                    dcc.Checklist(
-                        id="filter-dow",
-                        options=[{"label": f"  {d}", "value": d} for d in dow],
-                        value=dow,
+                        id="filter-age-ts",
+                        options=[{"label": f"  {a}", "value": a} for a in age_groups],
+                        value=age_groups,
                         inline=True,
                         style={"color": C["text"], "fontSize": "13px", "fontFamily": FONT_SANS},
                         inputStyle={"marginRight": "5px", "accentColor": C["accent"]},
@@ -383,8 +329,78 @@ layout = html.Div([
             dcc.Graph(id="ts-chart", config={"displayModeBar": False},
                       style={"height": "360px"}),
             html.P(
-                "Systematic hourly patterns inform dynamic transfer window adjustments. "
-                "Shaded regions denote AM and PM peak periods.",
+                "Shaded bands indicate AM and PM peak periods. "
+                "Compare age groups to identify where transfer windows may need adjustment.",
+                style={"fontSize": "12px", "color": C["secondary"],
+                       "margin": "12px 0 0", "fontFamily": FONT_SANS},
+            ),
+        ],
+    ),
+
+    # ── 2. Transfer Volume by Hour ────────────────────────────────────────────
+    card(
+        "Transfer Volume by Hour",
+        "Total number of transfers per hour, stacked by age group",
+        [
+            filter_bar([
+                html.Div([
+                    section_label("Age Group"),
+                    dcc.Checklist(
+                        id="filter-age-bar",
+                        options=[{"label": f"  {a}", "value": a} for a in age_groups],
+                        value=age_groups,
+                        inline=True,
+                        style={"color": C["text"], "fontSize": "13px", "fontFamily": FONT_SANS},
+                        inputStyle={"marginRight": "5px", "accentColor": C["accent"]},
+                    ),
+                ]),
+            ]),
+            dcc.Graph(id="bar-chart", config={"displayModeBar": False},
+                      style={"height": "360px"}),
+            html.P(
+                "Volume peaks during morning and evening rush hours. "
+                "Stacking reveals the relative contribution of each age group across the day.",
+                style={"fontSize": "12px", "color": C["secondary"],
+                       "margin": "12px 0 0", "fontFamily": FONT_SANS},
+            ),
+        ],
+    ),
+
+    # ── 3. Spatial Transfer Map ───────────────────────────────────────────────
+    card(
+        "Spatial Transfer Analysis",
+        "Transfer volumes from a selected origin region across Singapore — select an origin to explore flows",
+        [
+            filter_bar([
+                html.Div([
+                    section_label("Origin Region"),
+                    dcc.Dropdown(
+                        id="filter-origin",
+                        options=[{"label": r.title(), "value": r} for r in all_regions],
+                        value=None,
+                        multi=False,
+                        placeholder="All regions (total outbound volume)",
+                        style={"minWidth": "280px", "fontSize": "13px"},
+                    ),
+                ]),
+                html.Div([
+                    section_label("Hour of Day"),
+                    dcc.Dropdown(
+                        id="filter-hour",
+                        options=[{"label": f"{h:02d}:00", "value": h} for h in all_hours],
+                        value=None,
+                        multi=True,
+                        placeholder="All hours",
+                        style={"minWidth": "260px", "fontSize": "13px"},
+                    ),
+                ]),
+            ]),
+            dcc.Graph(id="map-chart", config={"displayModeBar": False},
+                      style={"height": "560px", "borderRadius": "8px", "overflow": "hidden"}),
+            html.P(
+                "Select an origin region to see where transfers flow. "
+                "The selected origin is outlined in red. "
+                "Darker shading indicates higher transfer volume to that destination.",
                 style={"fontSize": "12px", "color": C["secondary"],
                        "margin": "12px 0 0", "fontFamily": FONT_SANS},
             ),
@@ -405,17 +421,25 @@ layout = html.Div([
 # ── Callbacks ─────────────────────────────────────────────────────────────────
 
 @callback(
-    Output("hist-chart", "figure"),
-    Input("filter-commuter", "value"),
-    Input("filter-tod", "value"),
+    Output("ts-chart", "figure"),
+    Input("filter-age-ts", "value"),
 )
-def update_histogram(commuter_filter, tod_filter):
-    return build_histogram(commuter_filter, tod_filter)
+def update_timeseries(age_filter):
+    return build_timeseries(age_filter)
 
 
 @callback(
-    Output("ts-chart", "figure"),
-    Input("filter-dow", "value"),
+    Output("bar-chart", "figure"),
+    Input("filter-age-bar", "value"),
 )
-def update_timeseries(selected_days):
-    return build_timeseries(selected_days)
+def update_bar(age_filter):
+    return build_volume_bar(age_filter)
+
+
+@callback(
+    Output("map-chart", "figure"),
+    Input("filter-origin", "value"),
+    Input("filter-hour", "value"),
+)
+def update_map(origin, hour_filter):
+    return build_map_figure(origin, hour_filter)

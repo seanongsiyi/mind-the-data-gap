@@ -388,11 +388,11 @@ def get_real_bar_data(delay_duration=None, transfer_window=45, region=None, plan
     wrongly_merged_pct = result['wrongly_merged_pct']
     
     df = pd.DataFrame({
-        'metric': ['True transfers broken (%)', 'False transfers created (%)'],
+        'metric': ['True transfers broken (%)', 'Wrongly merged journeys (%)'],
         'count': [wrongly_split_pct, wrongly_merged_pct],
     })
     
-    order = ['True transfers broken (%)', 'False transfers created (%)']
+    order = ['True transfers broken (%)', 'Wrongly merged journeys (%)']
     df['metric'] = pd.Categorical(df['metric'], categories=order, ordered=True)
     df = df.sort_values('metric')
     
@@ -600,11 +600,9 @@ def build_bar_figure(region=None, time_of_day=None, delay_duration=None, transfe
 
 
 def get_patron_kpi_data(delay_duration=None, transfer_window=45):
-    """Get patron-level KPI data for grouped bar chart."""
     if DELAY_SIM_DF is None:
         return pd.DataFrame()
-    
-    # Parse delay_duration
+
     if delay_duration:
         try:
             delay_mins = int(delay_duration.split()[0])
@@ -612,46 +610,56 @@ def get_patron_kpi_data(delay_duration=None, transfer_window=45):
             delay_mins = 0
     else:
         delay_mins = 0
-    
+
     try:
         result = query_delay_sim(
             delay_mins=delay_mins,
             bus_window=transfer_window,
-            classifier_type='baseline',
-            patron='all'
+            classifier_type="baseline",
+            patron="all"
         )
-    except:
+    except Exception:
         return pd.DataFrame()
-    
-    df_patron = result['by_patron'].copy()
-    
+
+    df_patron = result["by_patron"].copy()
+
     if df_patron.empty:
         return pd.DataFrame()
-    
-    # Calculate 4 KPIs for each patron
-    kpi_data = []
+
+    rows = []
     for _, row in df_patron.iterrows():
-        patron = row['patron']
-        ground_truth_transfer_n = row['ground_truth_transfer_n']
-        ground_truth_new_journey_n = row['ground_truth_new_journey_n']
-        wrongly_split_n = row['wrongly_split_n']
-        wrongly_merged_n = row['wrongly_merged_n']
-        
-        correctly_kept_n = int(ground_truth_transfer_n) - wrongly_split_n
-        correctly_kept_pct = (correctly_kept_n / ground_truth_transfer_n * 100) if ground_truth_transfer_n > 0 else 0.0
-        
-        correctly_split_n = int(ground_truth_new_journey_n) - wrongly_merged_n
-        correctly_split_pct = (correctly_split_n / ground_truth_new_journey_n * 100) if ground_truth_new_journey_n > 0 else 0.0
-        
-        kpi_data.append({
-            'patron': patron,
-            'Transfers Correctly Identified (%)': correctly_kept_pct,
-            'Genuine Transfers Broken (%)': row['wrongly_split_pct'],
-            'Separate Journeys Correctly Split (%)': correctly_split_pct,
-            'False Transfers Created (%)': row['wrongly_merged_pct'],
+        ground_truth_transfer_n = row["ground_truth_transfer_n"]
+        ground_truth_new_journey_n = row["ground_truth_new_journey_n"]
+        wrongly_split_n = row["wrongly_split_n"]
+        wrongly_merged_n = row["wrongly_merged_n"]
+
+        correctly_kept_n = ground_truth_transfer_n - wrongly_split_n
+        correctly_kept_pct = (
+            correctly_kept_n / ground_truth_transfer_n * 100
+            if ground_truth_transfer_n > 0 else 0.0
+        )
+
+        correctly_split_n = ground_truth_new_journey_n - wrongly_merged_n
+        correctly_split_pct = (
+            correctly_split_n / ground_truth_new_journey_n * 100
+            if ground_truth_new_journey_n > 0 else 0.0
+        )
+
+        rows.append({
+            "patron": row["patron"],
+            "Transfers correctly identified": correctly_kept_n,
+            "Genuine transfers broken": row["wrongly_split_n"],
+            "Separate journeys correctly split": correctly_split_n,
+            "Wrongly merged journeys": row["wrongly_merged_n"],
         })
-    
-    return pd.DataFrame(kpi_data)
+
+    df = pd.DataFrame(rows)
+
+    order = ["Adult", "Senior Citizen", "Student"]
+    df["patron"] = pd.Categorical(df["patron"], categories=order, ordered=True)
+    df = df.sort_values("patron")
+
+    return df
 
 
 def build_patron_chart(delay_duration=None, transfer_window=45):
@@ -665,12 +673,12 @@ def build_patron_chart(delay_duration=None, transfer_window=45):
         return go.Figure().add_annotation(text="No patron data available")
     
     metrics = [
-        'Transfers Correctly Identified (%)',
-        'Genuine Transfers Broken (%)',
-        'Separate Journeys Correctly Split (%)',
-        'False Transfers Created (%)',
+        'Transfers correctly identified',
+        'Genuine transfers broken',
+        'Separate journeys correctly split',
+        'Wrongly merged journeys',
     ]
-    colors = ['#10b981', '#dc2626', '#0ea5e9', '#f59e0b']
+    colors = ["#10b981",'#dc2626',"#0ea5e9",'#f59e0b']
     
     fig = go.Figure()
     
@@ -680,7 +688,7 @@ def build_patron_chart(delay_duration=None, transfer_window=45):
             y=df[metric],
             name=metric,
             marker_color=color,
-            text=[f"{v:.1f}%" for v in df[metric]],
+            text=[f"{int(v):,}" for v in df[metric]],
             textposition="outside",
             textfont=dict(size=10, family=FONT_MONO),
         ))
@@ -688,18 +696,24 @@ def build_patron_chart(delay_duration=None, transfer_window=45):
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
+        hovermode = False,
         font=dict(family=FONT_SANS, color=C["text"], size=12),
         margin=dict(l=48, r=24, t=24, b=48),
-        xaxis=dict(**AXIS_STYLE, title="Patron Type"),
-        yaxis=dict(**AXIS_STYLE, title="Percentage (%)"),
+        xaxis=dict(
+            **AXIS_STYLE,
+            title="Patron Type",
+            categoryorder="array",
+            categoryarray=["Adult", "Senior Citizen", "Student"],
+        ),
+        yaxis=dict(**AXIS_STYLE, title="Number of Journeys"),
         barmode='group',
         height=300,
         legend=dict(
-            orientation="v",
+            orientation="h",
             yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01,
+            y=-0.3,
+            xanchor="center",
+            x=0.5,
             bgcolor="rgba(255,255,255,0.8)",
             bordercolor=C["border"],
             borderwidth=1,
@@ -739,13 +753,6 @@ def tradeoff_kpi_card(title, count_value, pct_value, accent_color):
             "color": accent_color,
             "fontFamily": FONT_SANS,
             "lineHeight": "1.1",
-        }),
-
-        html.Div(pct_value, style={
-            "fontSize": "13px",
-            "color": C["muted"],
-            "fontFamily": FONT_SANS,
-            "marginTop": "4px",
         }),
     ], style={
         "background": C["bg"],
@@ -876,6 +883,8 @@ def color_legend(min_val=0, max_val=1.12):
 # ── Page layout ───────────────────────────────────────────────────────────────
 
 layout = html.Div([
+    
+    html.Div(id="top"),
 
     html.Link(
         rel="stylesheet",
@@ -914,17 +923,33 @@ layout = html.Div([
     info_box(
             "How to use this simulation",
             [
-                html.Div("1. Hover over the map to view detailed metrics for each planning area."),
-                html.Div("2. Select a region or planning area to explore local impact."),
-                html.Div("3. Choose a time of day and delay duration to simulate disruption scenarios."),
-                html.Div("4. Adjust the transfer window to compare the trade-off between genuine transfers broken and false transfers created."),
+                html.Div(["1. "] + [html.Strong("Hover over the map")] + [" to view detailed metrics for each planning area."]),
+                html.Div(["2. "] + [html.Strong("Select a region or planning area")] + [" to explore local impact."]),
+                html.Div(["3. "] + [html.Strong("Choose a time of day and delay duration")] + [" to simulate disruption scenarios."]),
+                html.Div(["4. "] + [html.Strong("Adjust the transfer window")] + [" to compare the trade-off between genuine transfers broken and wrongly merged journeys."]),
+                html.Div(["5. "] + [html.Strong("Scroll down")] + [" to see how different patron types are affected by the transfer rules."]),
             ]
         ),
+    html.Div([
+    html.Span("Jump to: ", style={"fontWeight": "600", "marginRight": "10px"}),
+
+    html.A(
+        "Regional Impact Map",
+        href="#regional-map",
+        style={"marginRight": "15px", "textDecoration": "none", "color": C["accent"]}
+    ),
+
+    html.A(
+        " Patron Impact Comparison",
+        href="#patron-impact",
+        style={"textDecoration": "none", "color": C["accent"]}
+    ),
+], style={"marginBottom": "20px"}),
 
     # ── Main card: Map + Controls ─────────────────────────────────────────────
-    card(
+    html.Div(card(
         "Regional Impact Map",
-        "Genuine transfers broken by delays, shown as % of all transfers in each region",
+        "Genuine transfers broken by transfer window / delays, shown as % of all transfers in each town (hover over map for details)",
         [
             
 
@@ -1046,22 +1071,72 @@ layout = html.Div([
 
         ],
     ),
+             id = 'regional-map'
+    ),
 
     # ── Patron Comparison Card ─────────────────────────────────────────────
+  html.Div(
     card(
         "Patron Impact Comparison",
         "How different patron types are affected by the transfer window setting",
         [
             html.Div(
+                [
+                    html.Div([
+                        section_label("Duration of Delay"),
+                        dcc.Dropdown(
+                            id="p4-patron-delay-dropdown",
+                            options=[{"label": d, "value": d} for d in DELAY_DURATIONS],
+                            value="0 minutes",
+                            clearable=False,
+                            style={"fontSize": "13px", "width": "180px"},
+                        ),
+                    ]),
+
+                    html.Div([
+                        section_label("Transfer Window (minutes)"),
+                        dcc.Slider(
+                            id="p4-patron-transfer-slider",
+                            min=30,
+                            max=60,
+                            step=5,
+                            value=45,
+                            marks={
+                                30: {"label": "30", "style": {"fontFamily": FONT_MONO, "fontSize": "11px"}},
+                                45: {"label": "45", "style": {"fontFamily": FONT_MONO, "fontSize": "11px", "color": C["accent"]}},
+                                60: {"label": "60", "style": {"fontFamily": FONT_MONO, "fontSize": "11px"}},
+                            },
+                        ),
+                    ], style={
+                        "width": "260px",
+                        "background": C["surface"],
+                        "border": f"1px solid {C['border']}",
+                        "borderRadius": "8px",
+                        "padding": "14px 18px",
+                    }),
+                ],
+                style={
+                    "display": "flex",
+                    "justifyContent": "center",
+                    "gap": "24px",
+                    "alignItems": "flex-start",
+                    "marginBottom": "20px",
+                    "width": "100%",
+                },
+            ),
+
+            html.Div(
                 dcc.Graph(
                     id="p4-patron-chart",
                     figure=build_patron_chart(),
                     config={"displayModeBar": False},
-                    style={"height": "350px"},
+                    style={"height": "300px"},
                 ),
             ),
         ],
     ),
+    id="patron-impact",
+),
 
 ], style={
     "background":  C["bg"],
@@ -1096,13 +1171,14 @@ def update_planning_areas(region, current_value):
     Output("p4-map-figure", "figure"),
     Output("p4-tradeoff-kpis", "children"),
     Output("p4-color-legend", "children"),
-    Output("p4-patron-chart", "figure"),
     Input("p4-region-dropdown", "value"),
     Input("p4-planning-area-dropdown", "value"),
     Input("p4-time-dropdown", "value"),
     Input("p4-delay-dropdown", "value"),
     Input("p4-transfer-window-slider", "value"),
 )
+
+
 def update_figures(region, planning_area, time_of_day, delay_duration, transfer_window):
     map_fig = build_map_figure(region, time_of_day, delay_duration, transfer_window, planning_area)
 
@@ -1194,9 +1270,8 @@ def update_figures(region, planning_area, time_of_day, delay_duration, transfer_
                 correctly_split_n = int(ground_truth_new_journey_n) - wrongly_merged_n
                 correctly_split_pct = (correctly_split_n / ground_truth_new_journey_n * 100) if ground_truth_new_journey_n > 0 else 0.0
 
-                total_pairs = df_region["n_pairs"].sum()
-                wrongly_split_pct = wrongly_split_n / total_pairs * 100 if total_pairs > 0 else 0.0
-                wrongly_merged_pct = wrongly_merged_n / total_pairs * 100 if total_pairs > 0 else 0.0
+                wrongly_split_pct = (wrongly_split_n / ground_truth_transfer_n * 100) if ground_truth_transfer_n > 0 else 0.0
+                wrongly_merged_pct = (wrongly_merged_n / ground_truth_new_journey_n * 100) if ground_truth_new_journey_n > 0 else 0.0
 
         tradeoff_kpis = html.Div([
             tradeoff_kpi_card(
@@ -1218,17 +1293,23 @@ def update_figures(region, planning_area, time_of_day, delay_duration, transfer_
                 "#0ea5e9",
             ),
             tradeoff_kpi_card(
-                "False transfers created",
+                "Wrongly merged journeys",
                 f"{wrongly_merged_n:,}",
                 f"{wrongly_merged_pct:.2f}% of separate journeys",
                 "#f59e0b",
             ),
             ])
 
-        patron_fig = build_patron_chart(delay_duration, transfer_window)
-
     except Exception as e:
         tradeoff_kpis = html.Div("Unable to load tradeoff metrics")
-        patron_fig = build_patron_chart(delay_duration, transfer_window)
 
-    return map_fig, tradeoff_kpis, legend, patron_fig
+    return map_fig, tradeoff_kpis, legend
+
+@callback(
+    Output("p4-patron-chart", "figure"),
+    Input("p4-patron-delay-dropdown", "value"),
+    Input("p4-patron-transfer-slider", "value"),
+)
+
+def update_patron_chart(delay_duration, transfer_window):
+    return build_patron_chart(delay_duration, transfer_window)
