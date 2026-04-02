@@ -695,11 +695,11 @@ def build_patron_chart(delay_duration=None, transfer_window=45):
         barmode='group',
         height=300,
         legend=dict(
-            orientation="v",
+            orientation="h",
             yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01,
+            y=-0.3,
+            xanchor="center",
+            x=0.5,
             bgcolor="rgba(255,255,255,0.8)",
             bordercolor=C["border"],
             borderwidth=1,
@@ -933,7 +933,7 @@ layout = html.Div([
     ),
 
     html.A(
-        "Patron Impact",
+        " Patron Impact Comparison",
         href="#patron-impact",
         style={"textDecoration": "none", "color": C["accent"]}
     ),
@@ -1068,22 +1068,68 @@ layout = html.Div([
     ),
 
     # ── Patron Comparison Card ─────────────────────────────────────────────
-    html.Div(card(
+  html.Div(
+    card(
         "Patron Impact Comparison",
         "How different patron types are affected by the transfer window setting",
         [
+            html.Div(
+                [
+                    html.Div([
+                        section_label("Duration of Delay"),
+                        dcc.Dropdown(
+                            id="p4-patron-delay-dropdown",
+                            options=[{"label": d, "value": d} for d in DELAY_DURATIONS],
+                            value="0 minutes",
+                            clearable=False,
+                            style={"fontSize": "13px", "width": "180px"},
+                        ),
+                    ]),
+
+                    html.Div([
+                        section_label("Transfer Window (minutes)"),
+                        dcc.Slider(
+                            id="p4-patron-transfer-slider",
+                            min=30,
+                            max=60,
+                            step=5,
+                            value=45,
+                            marks={
+                                30: {"label": "30", "style": {"fontFamily": FONT_MONO, "fontSize": "11px"}},
+                                45: {"label": "45", "style": {"fontFamily": FONT_MONO, "fontSize": "11px", "color": C["accent"]}},
+                                60: {"label": "60", "style": {"fontFamily": FONT_MONO, "fontSize": "11px"}},
+                            },
+                        ),
+                    ], style={
+                        "width": "260px",
+                        "background": C["surface"],
+                        "border": f"1px solid {C['border']}",
+                        "borderRadius": "8px",
+                        "padding": "14px 18px",
+                    }),
+                ],
+                style={
+                    "display": "flex",
+                    "justifyContent": "center",
+                    "gap": "24px",
+                    "alignItems": "flex-start",
+                    "marginBottom": "20px",
+                    "width": "100%",
+                },
+            ),
+
             html.Div(
                 dcc.Graph(
                     id="p4-patron-chart",
                     figure=build_patron_chart(),
                     config={"displayModeBar": False},
-                    style={"height": "350px"},
+                    style={"height": "300px"},
                 ),
             ),
         ],
     ),
-             id = 'patron-impact'
-    ),
+    id="patron-impact",
+),
 
 ], style={
     "background":  C["bg"],
@@ -1118,13 +1164,14 @@ def update_planning_areas(region, current_value):
     Output("p4-map-figure", "figure"),
     Output("p4-tradeoff-kpis", "children"),
     Output("p4-color-legend", "children"),
-    Output("p4-patron-chart", "figure"),
     Input("p4-region-dropdown", "value"),
     Input("p4-planning-area-dropdown", "value"),
     Input("p4-time-dropdown", "value"),
     Input("p4-delay-dropdown", "value"),
     Input("p4-transfer-window-slider", "value"),
 )
+
+
 def update_figures(region, planning_area, time_of_day, delay_duration, transfer_window):
     map_fig = build_map_figure(region, time_of_day, delay_duration, transfer_window, planning_area)
 
@@ -1247,10 +1294,16 @@ def update_figures(region, planning_area, time_of_day, delay_duration, transfer_
             ),
             ])
 
-        patron_fig = build_patron_chart(delay_duration, transfer_window)
-
     except Exception as e:
         tradeoff_kpis = html.Div("Unable to load tradeoff metrics")
-        patron_fig = build_patron_chart(delay_duration, transfer_window)
 
-    return map_fig, tradeoff_kpis, legend, patron_fig
+    return map_fig, tradeoff_kpis, legend
+
+@callback(
+    Output("p4-patron-chart", "figure"),
+    Input("p4-patron-delay-dropdown", "value"),
+    Input("p4-patron-transfer-slider", "value"),
+)
+
+def update_patron_chart(delay_duration, transfer_window):
+    return build_patron_chart(delay_duration, transfer_window)
