@@ -876,6 +876,8 @@ def color_legend(min_val=0, max_val=1.12):
 # ── Page layout ───────────────────────────────────────────────────────────────
 
 layout = html.Div([
+    
+    html.Div(id="top"),
 
     html.Link(
         rel="stylesheet",
@@ -914,15 +916,31 @@ layout = html.Div([
     info_box(
             "How to use this simulation",
             [
-                html.Div("1. Hover over the map to view detailed metrics for each planning area."),
-                html.Div("2. Select a region or planning area to explore local impact."),
-                html.Div("3. Choose a time of day and delay duration to simulate disruption scenarios."),
-                html.Div("4. Adjust the transfer window to compare the trade-off between genuine transfers broken and false transfers created."),
+                html.Div(["1. "] + [html.Strong("Hover over the map")] + [" to view detailed metrics for each planning area."]),
+                html.Div(["2. "] + [html.Strong("Select a region or planning area")] + [" to explore local impact."]),
+                html.Div(["3. "] + [html.Strong("Choose a time of day and delay duration")] + [" to simulate disruption scenarios."]),
+                html.Div(["4. "] + [html.Strong("Adjust the transfer window")] + [" to compare the trade-off between genuine transfers broken and false transfers created."]),
+                html.Div(["5. "] + [html.Strong("Scroll down")] + [" to see how different patron types are affected by the transfer rules."]),
             ]
         ),
+    html.Div([
+    html.Span("Jump to: ", style={"fontWeight": "600", "marginRight": "10px"}),
+
+    html.A(
+        "Regional Impact Map",
+        href="#regional-map",
+        style={"marginRight": "15px", "textDecoration": "none", "color": C["accent"]}
+    ),
+
+    html.A(
+        "Patron Impact",
+        href="#patron-impact",
+        style={"textDecoration": "none", "color": C["accent"]}
+    ),
+], style={"marginBottom": "20px"}),
 
     # ── Main card: Map + Controls ─────────────────────────────────────────────
-    card(
+    html.Div(card(
         "Regional Impact Map",
         "Genuine transfers broken by delays, shown as % of all transfers in each region",
         [
@@ -1046,9 +1064,11 @@ layout = html.Div([
 
         ],
     ),
+             id = 'regional-map'
+    ),
 
     # ── Patron Comparison Card ─────────────────────────────────────────────
-    card(
+    html.Div(card(
         "Patron Impact Comparison",
         "How different patron types are affected by the transfer window setting",
         [
@@ -1061,6 +1081,8 @@ layout = html.Div([
                 ),
             ),
         ],
+    ),
+             id = 'patron-impact'
     ),
 
 ], style={
