@@ -1276,9 +1276,8 @@ def update_figures(region, planning_area, time_of_day, delay_duration, transfer_
                 correctly_split_n = int(ground_truth_new_journey_n) - wrongly_merged_n
                 correctly_split_pct = (correctly_split_n / ground_truth_new_journey_n * 100) if ground_truth_new_journey_n > 0 else 0.0
 
-                total_pairs = df_region["n_pairs"].sum()
-                wrongly_split_pct = wrongly_split_n / total_pairs * 100 if total_pairs > 0 else 0.0
-                wrongly_merged_pct = wrongly_merged_n / total_pairs * 100 if total_pairs > 0 else 0.0
+                wrongly_split_pct = (wrongly_split_n / ground_truth_transfer_n * 100) if ground_truth_transfer_n > 0 else 0.0
+                wrongly_merged_pct = (wrongly_merged_n / ground_truth_new_journey_n * 100) if ground_truth_new_journey_n > 0 else 0.0
 
         tradeoff_kpis = html.Div([
             tradeoff_kpi_card(
