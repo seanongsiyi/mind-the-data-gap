@@ -647,10 +647,10 @@ def get_patron_kpi_data(delay_duration=None, transfer_window=45):
 
         rows.append({
             "patron": row["patron"],
-            "Transfers correctly identified (%)": correctly_kept_pct,
-            "Genuine transfers broken (%)": row["wrongly_split_pct"],
-            "Separate journeys correctly split (%)": correctly_split_pct,
-            "False transfers created (%)": row["wrongly_merged_pct"],
+            "Transfers correctly identified": correctly_kept_n,
+            "Genuine transfers broken": row["wrongly_split_n"],
+            "Separate journeys correctly split": correctly_split_n,
+            "False transfers created": row["wrongly_merged_n"],
         })
 
     df = pd.DataFrame(rows)
@@ -673,10 +673,10 @@ def build_patron_chart(delay_duration=None, transfer_window=45):
         return go.Figure().add_annotation(text="No patron data available")
     
     metrics = [
-        'Transfers correctly identified (%)',
-        'Genuine transfers broken (%)',
-        'Separate journeys correctly split (%)',
-        'False transfers created (%)',
+        'Transfers correctly identified',
+        'Genuine transfers broken',
+        'Separate journeys correctly split',
+        'False transfers created',
     ]
     colors = ["#10b981",'#dc2626',"#0ea5e9",'#f59e0b']
     
@@ -688,7 +688,7 @@ def build_patron_chart(delay_duration=None, transfer_window=45):
             y=df[metric],
             name=metric,
             marker_color=color,
-            text=[f"{v:.1f}%" for v in df[metric]],
+            text=[f"{int(v):,}" for v in df[metric]],
             textposition="outside",
             textfont=dict(size=10, family=FONT_MONO),
         ))
@@ -696,6 +696,7 @@ def build_patron_chart(delay_duration=None, transfer_window=45):
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
+        hovermode = False,
         font=dict(family=FONT_SANS, color=C["text"], size=12),
         margin=dict(l=48, r=24, t=24, b=48),
         xaxis=dict(
@@ -704,7 +705,7 @@ def build_patron_chart(delay_duration=None, transfer_window=45):
             categoryorder="array",
             categoryarray=["Adult", "Senior Citizen", "Student"],
         ),
-        yaxis=dict(**AXIS_STYLE, title="Percentage (%)"),
+        yaxis=dict(**AXIS_STYLE, title="Number of Journeys"),
         barmode='group',
         height=300,
         legend=dict(
