@@ -600,11 +600,9 @@ def build_bar_figure(region=None, time_of_day=None, delay_duration=None, transfe
 
 
 def get_patron_kpi_data(delay_duration=None, transfer_window=45):
-    """Get patron-level KPI data for grouped bar chart."""
     if DELAY_SIM_DF is None:
         return pd.DataFrame()
-    
-    # Parse delay_duration
+
     if delay_duration:
         try:
             delay_mins = int(delay_duration.split()[0])
@@ -612,46 +610,56 @@ def get_patron_kpi_data(delay_duration=None, transfer_window=45):
             delay_mins = 0
     else:
         delay_mins = 0
-    
+
     try:
         result = query_delay_sim(
             delay_mins=delay_mins,
             bus_window=transfer_window,
-            classifier_type='baseline',
-            patron='all'
+            classifier_type="baseline",
+            patron="all"
         )
-    except:
+    except Exception:
         return pd.DataFrame()
-    
-    df_patron = result['by_patron'].copy()
-    
+
+    df_patron = result["by_patron"].copy()
+
     if df_patron.empty:
         return pd.DataFrame()
-    
-    # Calculate 4 KPIs for each patron
-    kpi_data = []
+
+    rows = []
     for _, row in df_patron.iterrows():
-        patron = row['patron']
-        ground_truth_transfer_n = row['ground_truth_transfer_n']
-        ground_truth_new_journey_n = row['ground_truth_new_journey_n']
-        wrongly_split_n = row['wrongly_split_n']
-        wrongly_merged_n = row['wrongly_merged_n']
-        
-        correctly_kept_n = int(ground_truth_transfer_n) - wrongly_split_n
-        correctly_kept_pct = (correctly_kept_n / ground_truth_transfer_n * 100) if ground_truth_transfer_n > 0 else 0.0
-        
-        correctly_split_n = int(ground_truth_new_journey_n) - wrongly_merged_n
-        correctly_split_pct = (correctly_split_n / ground_truth_new_journey_n * 100) if ground_truth_new_journey_n > 0 else 0.0
-        
-        kpi_data.append({
-            'patron': patron,
-            'Transfers Correctly Identified (%)': correctly_kept_pct,
-            'Genuine Transfers Broken (%)': row['wrongly_split_pct'],
-            'Separate Journeys Correctly Split (%)': correctly_split_pct,
-            'False Transfers Created (%)': row['wrongly_merged_pct'],
+        ground_truth_transfer_n = row["ground_truth_transfer_n"]
+        ground_truth_new_journey_n = row["ground_truth_new_journey_n"]
+        wrongly_split_n = row["wrongly_split_n"]
+        wrongly_merged_n = row["wrongly_merged_n"]
+
+        correctly_kept_n = ground_truth_transfer_n - wrongly_split_n
+        correctly_kept_pct = (
+            correctly_kept_n / ground_truth_transfer_n * 100
+            if ground_truth_transfer_n > 0 else 0.0
+        )
+
+        correctly_split_n = ground_truth_new_journey_n - wrongly_merged_n
+        correctly_split_pct = (
+            correctly_split_n / ground_truth_new_journey_n * 100
+            if ground_truth_new_journey_n > 0 else 0.0
+        )
+
+        rows.append({
+            "patron": row["patron"],
+            "Transfers correctly identified (%)": correctly_kept_pct,
+            "Genuine transfers broken (%)": row["wrongly_split_pct"],
+            "Separate journeys correctly split (%)": correctly_split_pct,
+            "False transfers created (%)": row["wrongly_merged_pct"],
         })
-    
-    return pd.DataFrame(kpi_data)
+
+    df = pd.DataFrame(rows)
+
+    order = ["Adult", "Senior Citizen", "Student"]
+    df["patron"] = pd.Categorical(df["patron"], categories=order, ordered=True)
+    df = df.sort_values("patron")
+
+    return df
 
 
 def build_patron_chart(delay_duration=None, transfer_window=45):
@@ -665,12 +673,12 @@ def build_patron_chart(delay_duration=None, transfer_window=45):
         return go.Figure().add_annotation(text="No patron data available")
     
     metrics = [
-        'Transfers Correctly Identified (%)',
-        'Genuine Transfers Broken (%)',
-        'Separate Journeys Correctly Split (%)',
-        'False Transfers Created (%)',
+        'Transfers correctly identified (%)',
+        'Genuine transfers broken (%)',
+        'Separate journeys correctly split (%)',
+        'False transfers created (%)',
     ]
-    colors = ['#10b981', '#dc2626', '#0ea5e9', '#f59e0b']
+    colors = ["#10b981",'#dc2626',"#0ea5e9",'#f59e0b']
     
     fig = go.Figure()
     
@@ -690,7 +698,12 @@ def build_patron_chart(delay_duration=None, transfer_window=45):
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(family=FONT_SANS, color=C["text"], size=12),
         margin=dict(l=48, r=24, t=24, b=48),
-        xaxis=dict(**AXIS_STYLE, title="Patron Type"),
+        xaxis=dict(
+            **AXIS_STYLE,
+            title="Patron Type",
+            categoryorder="array",
+            categoryarray=["Adult", "Senior Citizen", "Student"],
+        ),
         yaxis=dict(**AXIS_STYLE, title="Percentage (%)"),
         barmode='group',
         height=300,
