@@ -388,11 +388,11 @@ def get_real_bar_data(delay_duration=None, transfer_window=45, region=None, plan
     wrongly_merged_pct = result['wrongly_merged_pct']
     
     df = pd.DataFrame({
-        'metric': ['True transfers broken (%)', 'False transfers created (%)'],
+        'metric': ['True transfers broken (%)', 'Wrongly merged journeys (%)'],
         'count': [wrongly_split_pct, wrongly_merged_pct],
     })
     
-    order = ['True transfers broken (%)', 'False transfers created (%)']
+    order = ['True transfers broken (%)', 'Wrongly merged journeys (%)']
     df['metric'] = pd.Categorical(df['metric'], categories=order, ordered=True)
     df = df.sort_values('metric')
     
@@ -650,7 +650,7 @@ def get_patron_kpi_data(delay_duration=None, transfer_window=45):
             "Transfers correctly identified": correctly_kept_n,
             "Genuine transfers broken": row["wrongly_split_n"],
             "Separate journeys correctly split": correctly_split_n,
-            "False transfers created": row["wrongly_merged_n"],
+            "Wrongly merged journeys": row["wrongly_merged_n"],
         })
 
     df = pd.DataFrame(rows)
@@ -676,7 +676,7 @@ def build_patron_chart(delay_duration=None, transfer_window=45):
         'Transfers correctly identified',
         'Genuine transfers broken',
         'Separate journeys correctly split',
-        'False transfers created',
+        'Wrongly merged journeys',
     ]
     colors = ["#10b981",'#dc2626',"#0ea5e9",'#f59e0b']
     
@@ -753,13 +753,6 @@ def tradeoff_kpi_card(title, count_value, pct_value, accent_color):
             "color": accent_color,
             "fontFamily": FONT_SANS,
             "lineHeight": "1.1",
-        }),
-
-        html.Div(pct_value, style={
-            "fontSize": "13px",
-            "color": C["muted"],
-            "fontFamily": FONT_SANS,
-            "marginTop": "4px",
         }),
     ], style={
         "background": C["bg"],
@@ -933,7 +926,7 @@ layout = html.Div([
                 html.Div(["1. "] + [html.Strong("Hover over the map")] + [" to view detailed metrics for each planning area."]),
                 html.Div(["2. "] + [html.Strong("Select a region or planning area")] + [" to explore local impact."]),
                 html.Div(["3. "] + [html.Strong("Choose a time of day and delay duration")] + [" to simulate disruption scenarios."]),
-                html.Div(["4. "] + [html.Strong("Adjust the transfer window")] + [" to compare the trade-off between genuine transfers broken and false transfers created."]),
+                html.Div(["4. "] + [html.Strong("Adjust the transfer window")] + [" to compare the trade-off between genuine transfers broken and wrongly merged journeys."]),
                 html.Div(["5. "] + [html.Strong("Scroll down")] + [" to see how different patron types are affected by the transfer rules."]),
             ]
         ),
@@ -956,7 +949,7 @@ layout = html.Div([
     # ── Main card: Map + Controls ─────────────────────────────────────────────
     html.Div(card(
         "Regional Impact Map",
-        "Genuine transfers broken by delays, shown as % of all transfers in each region",
+        "Genuine transfers broken by transfer window / delays, shown as % of all transfers in each town (hover over map for details)",
         [
             
 
@@ -1300,7 +1293,7 @@ def update_figures(region, planning_area, time_of_day, delay_duration, transfer_
                 "#0ea5e9",
             ),
             tradeoff_kpi_card(
-                "False transfers created",
+                "Wrongly merged journeys",
                 f"{wrongly_merged_n:,}",
                 f"{wrongly_merged_pct:.2f}% of separate journeys",
                 "#f59e0b",
