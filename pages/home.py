@@ -161,7 +161,7 @@ layout = html.Div([
                 "lineHeight": "1.2",
             }),
             html.P(
-                "Current transfer rules leave elderly and differently-abled commuters at a disadvantage. "
+                "Current transfer rules leave some commuters at a disadvantage. "
                 "This project investigates how the 45-minute bus transfer window can be made more equitable and efficient.",
                 style={
                     "fontSize":   "14px",
@@ -299,8 +299,8 @@ layout = html.Div([
             }),
             html.P(
                 "Current public transfer rules enforce a 45-minute window for train-bus and bus-bus "
-                "transfers. These policies leave certain demographics — including the elderly and "
-                "differently-abled — in inequitable situations where reduced mobility results in higher fares.",
+                "transfers. These policies leave certain demographics like the elderly "
+                "in inequitable situations where reduced mobility results in higher fares.",
                 style={"fontSize": "13px", "color": C["secondary"], "fontFamily": FONT,
                        "lineHeight": "1.7", "margin": "0 0 12px"},
             ),
@@ -308,15 +308,15 @@ layout = html.Div([
                 "This project evaluates, from a policy standpoint, how public transfer rules can be "
                 "optimised to enhance both equity and efficiency. It assesses demographic fairness of "
                 "the existing 45-minute transfer window and proposes dynamic transfer rules that vary "
-                "across demographics, regions, and time-of-day. A comprehensive cost-benefit analysis "
-                "informs policy reforms that better balance commuter welfare with LTA's operational sustainability.",
+                "across demographics, regions, and time-of-day. "
+               ,
                 style={"fontSize": "13px", "color": C["secondary"], "fontFamily": FONT,
                        "lineHeight": "1.7", "margin": "0 0 12px"},
             ),
             html.P(
                 "Beyond the core analysis, the project explores extensions including adapting transfer "
-                "windows to real-time conditions such as service disruptions or weather-related delays, "
-                "and a regional analysis tool that handles both emerging and declining neighbourhoods.",
+                "windows to real-time conditions such as service disruptions or miscellaneous delays. "
+                ,
                 style={"fontSize": "13px", "color": C["secondary"], "fontFamily": FONT,
                        "lineHeight": "1.7", "margin": "0"},
             ),
@@ -367,8 +367,7 @@ layout = html.Div([
                 for i, obj in enumerate([
                     "Assess demographic fairness of the existing 45-minute bus transfer window.",
                     "Propose dynamic transfer rules varying by commuter type, region, and time-of-day.",
-                    "Conduct cost-benefit analysis balancing commuter welfare and LTA sustainability.",
-                    "Explore real-time adaptations for service disruptions and weather delays.",
+                    "Explore real-time adaptations for service disruptions and miscellaneous delays.",
                 ])
             ],
         ], style={
