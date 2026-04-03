@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from dash import State
 
+
 dash.register_page(__name__, path="/page-3", name="Policy Simulator")
 
 # ── Design tokens  ────────────────────────────
@@ -97,6 +98,32 @@ def card(title, subtitle, children):
         "marginBottom": "20px",
     })
 
+def info_box(title, children):
+    return html.Div([
+        html.Div(title, style={
+            "fontSize": "12px",
+            "fontWeight": "700",
+            "letterSpacing": "0.04em",
+            "textTransform": "uppercase",
+            "color": C["accent"],
+            "fontFamily": FONT_MONO,
+            "marginBottom": "8px",
+        }),
+        html.Div(children, style={
+            "fontSize": "13px",
+            "color": C["secondary"],
+            "fontFamily": FONT_SANS,
+            "lineHeight": "1.6",
+        }),
+    ], style={
+        "background": C["accent_soft"],
+        "border": f"1px solid {C['border']}",
+        "borderLeft": f"4px solid {C['accent']}",
+        "borderRadius": "8px",
+        "padding": "14px 16px",
+        "marginBottom": "18px",
+    })
+
 def stat_card(label, value, color=C["text"]):
     return html.Div([
         html.P(label, style={
@@ -175,6 +202,16 @@ layout = html.Div([
         "paddingBottom": "20px",
         "borderBottom": f"1px solid {C['border']}",
     }),
+
+    info_box(
+            "How to use this simulator",
+            [
+                html.Div(["1. "] + [html.Strong("Input")] + [" your choices of patron, model specification and region."]),
+                html.Div(["2. "] + [html.Strong("Select a transfer window")] + [" to compare against the current 45 minute window."]),
+                html.Div(["3. "] + [html.Strong("Click compare")] + [" to simulate and compare different scenario."]),
+                html.Div(["4. "] + [html.Strong("Click the Let's Go button")] + [" once done."]),
+            ]
+        ),
 
     # ── Main card ─────────────────────────────────────
     card(
@@ -356,150 +393,6 @@ layout = html.Div([
                 "maxWidth": "1100px",
                 "margin": "0 auto",
             }),
-            #html.Div([
-
-                # Column 1: Specification Detail
-            #    html.Div([
-            #            html.Div([
-            #            section_label("Correctly merged"),
-            #                dcc.Graph(
-            #                    id="sim-chart-pie", 
-            #                    config={"displayModeBar": False},
-            #                    style={"height": "240px"},
-            #                ),
-            #        ],
-            #        style={
-            #        "flex": "1.5",
-            #        "background": C["surface"],
-            #        "border": f"1px solid {C['border']}",
-            #        "borderRadius": "8px",
-            #        "padding": "16px 18px",
-            #        }),
-
-                # Column 2: Statistics
-            #    html.Div([
-            #        section_label("Merge statistics"),
-            #        html.Div(id="stats-container", style={
-            #                "display": "grid",
-            #                "gridTemplateColumns": "1fr 1fr", 
-            #                "gap": "16px",
-            #                "marginTop": "10px"
-            #        })
-            #    ], style={
-            #        "flex": "1.5",
-            #        "background": C["surface"],
-            #        "border": f"1px solid {C['border']}",
-            #        "borderRadius": "8px",
-            #        "padding": "16px 18px",
-            #    }),
-
-                # Column 3: Commuter Profile
-            #    html.Div([
-            #        section_label("Commuter Profile"),
-            #        html.Div(id="character-display", style={
-            #            "width": "180px", 
-            #            "height": "200px", 
-            #            "display": "flex", 
-            #            "alignItems": "center", 
-            #            "justifyContent": "center",
-            #            "background": "#fff",
-            #            "borderRadius": "12px",
-            #            "border": f"1px solid {C['border']}"
-            #        })
-            #    ], style={"flex": "0 0 auto"}),
-
-            #], style={
-            #    "display": "flex", 
-            #    "gap": "20px", 
-            #    "alignItems": "stretch" 
-            #}),
-            #]),
-
-            #html.Div([
-
-            #    html.Div([
-            #            html.Div([
-            #            section_label("Wrongly merged"),
-            #                dcc.Graph(
-            #                    id="sim-chart-pie-2", 
-            #                    config={"displayModeBar": False},
-            #                    style={"height": "240px"},
-            #                ),
-            #        ],
-            #        style={
-            #        "flex": "1.5",
-            #        "background": C["surface"],
-            #        "border": f"1px solid {C['border']}",
-            #        "borderRadius": "8px",
-            #        "padding": "16px 18px",
-            #        }),
-
-                # Column 2: Statistics
-            #    html.Div([
-            #        section_label("Merge statistics"),
-            #        html.Div(id="stats-container-2", style={
-            #                "display": "grid",
-            #                "gridTemplateColumns": "1fr 1fr", 
-            #                "gap": "16px",
-            #                "marginTop": "10px"
-            #        })
-            #    ], style={
-            #        "flex": "1.5",
-            #        "background": C["surface"],
-            #        "border": f"1px solid {C['border']}",
-            #        "borderRadius": "8px",
-            #        "padding": "16px 18px",
-            #    }),
-
-            #], style={
-            #    "display": "flex", 
-            #    "gap": "20px", 
-            #    "alignItems": "stretch" # Keeps all cards the same height
-            #}),
-            #]),
-
-            #html.Div([
-            #    section_label("Regional Analysis"),
-            #        dcc.Graph(
-            #            id="sim-chart-region", 
-            #            config={"displayModeBar": False},
-            #            style={"height": "240px"},
-            #       ),
-            #        ],
-            #        style={
-            #        "flex": "1.5",
-            #        "background": C["surface"],
-            #        "border": f"1px solid {C['border']}",
-            #        "borderRadius": "8px",
-            #        "padding": "16px 18px",
-            #        }),
-
-            #html.Div([
-            #        section_label("Specification Detail"),
-            #        html.Div(id="model-description-text", style={
-            #            "fontSize": "13px",
-            #            "color": C["secondary"],
-            #            "lineHeight": "1.5",
-            #            "fontFamily": FONT_SANS
-            #        })
-            #    ], style={
-            #        "width" : "90%",
-            #        "flex": "1", 
-            #        "background": C["surface"],
-            #        "border": f"1px solid {C['border']}",
-            #        "borderRadius": "8px",
-            #        "padding": "16px 18px",
-            #    }),
-        #] # Closes card() children list
-    #), # Closes card() component
-#], style={
-#    "background": C["bg"],
-#    "minHeight": "100vh",
-#    "padding": "36px 48px",
-#    "fontFamily": FONT_SANS,
-#    "maxWidth": "1100px",
-#    "margin": "0 auto",
-#})
 
 
 # ── Callback ───────────────────────────────────
@@ -512,7 +405,6 @@ def toggle_compare_inputs(toggle_value):
         return {"display": "block", "padding": "20px", "background": C["accent_soft"], "borderRadius": "8px", "marginBottom": "20px"}
     return {"display": "none"}
 @callback(
-    #Output("compare-input-row", "style"),
     Output("simulation-output-wrapper", "children"),
     Input("sim-submit", "n_clicks"),
     State("compare-toggle", "value"),
@@ -525,28 +417,13 @@ def toggle_compare_inputs(toggle_value):
     prevent_initial_call=True,
 )
 
-#@callback(
-#    Output("sim-chart-pie","figure"),
-#    Output("stats-container", "children"),
-#    Output("character-display","children"),
-#    Output("sim-chart-pie-2","figure"),
-#    Output("stats-container-2","children"),
-#    Output("sim-chart-region","figure"),
-#    Output("model-description-text", "children"),
-#    Input("sim-submit", "n_clicks"),
-#    State("sim-patron", "value"),
-#    State("sim-spec", "value"),
-#    State("sim-region","value"),
-#    State("sim-window-bench","value"),
- #   State("sim-window-hypo","value"),
- #   prevent_initial_call=True,
-#)
+
 
 
 def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_a):
     def render_analysis(patron, spec, region, bench, title_label):
         # --- 1. Initialize variables with defaults ---
-        fig = go.Figure()  # Pre-define fig so it always exists
+        fig = go.Figure()  
         char_img = ""
         description_text = ""
 
@@ -559,7 +436,7 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
             "Student": "/assets/standup_stacey.png",
             "Adult": "/assets/movein_martin.png",
             "Senior Citizen": "/assets/giveway_glenda.png",
-            "Overall": "/assets/mrt_picture.png" # current picture is bad can replace
+            "Overall": "/assets/mrt_picture.png" 
         }
         img_path = CHAR_MAP.get(patron, CHAR_MAP["Overall"])
         char_img = html.Img(src=img_path, style={"width": "150px", "height": "180px", "objectFit": "contain"})
@@ -802,12 +679,7 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
             "border": f"1px solid {C['border']}",
             "boxShadow": "0 2px 4px rgba(0,0,0,0.05)"
         })
-    # --- MAIN CALLBACK LOGIC ---
-    # Toggle the blue input box visibility
-    #compare_box_style = {
-    #    "display": "block", "padding": "20px", "background": C["accent_soft"], 
-    #    "borderRadius": "8px", "marginBottom": "20px"
-    #    } if "on" in compare_on else {"display": "none"}
+
     b_a = int(b_a)
     if "on" in compare_on:
         h_a = int(h_a)
