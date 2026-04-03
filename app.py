@@ -1,5 +1,6 @@
 import dash
-from dash import Dash, html, dcc, Input, Output, callback
+from dash import Dash, html, dcc, Input, Output, callback, ctx
+from dash.exceptions import PreventUpdate
 
 app = Dash(__name__, use_pages=True)
 
@@ -35,12 +36,12 @@ app.layout = html.Div([
             },
         ),
     ], style={
-        "background":    "#ffffff",
-        "borderBottom":  "1px solid #e2e5ec",
-        "padding":       "16px 48px",
-        "display":       "flex",
-        "alignItems":    "center",
-        "gap":           "32px",
+        "background":   "#ffffff",
+        "borderBottom": "1px solid #e2e5ec",
+        "padding":      "16px 48px",
+        "display":      "flex",
+        "alignItems":   "center",
+        "gap":          "32px",
     }),
 
     # ── Navigation tabs ───────────────────────────────────────────────────────
@@ -53,26 +54,26 @@ app.layout = html.Div([
                     label=page["name"],
                     value=page["relative_path"],
                     style={
-                        "padding":       "10px 20px",
-                        "fontSize":      "13px",
-                        "fontWeight":    "500",
-                        "fontFamily":    "'Inter', sans-serif",
-                        "color":         "#6b7280",
-                        "border":        "none",
-                        "borderBottom":  "2px solid transparent",
-                        "background":    "transparent",
-                        "cursor":        "pointer",
+                        "padding":      "10px 20px",
+                        "fontSize":     "13px",
+                        "fontWeight":   "500",
+                        "fontFamily":   "'Inter', sans-serif",
+                        "color":        "#6b7280",
+                        "border":       "none",
+                        "borderBottom": "2px solid transparent",
+                        "background":   "transparent",
+                        "cursor":       "pointer",
                     },
                     selected_style={
-                        "padding":       "10px 20px",
-                        "fontSize":      "13px",
-                        "fontWeight":    "600",
-                        "fontFamily":    "'Inter', sans-serif",
-                        "color":         "#1a56db",
-                        "border":        "none",
-                        "borderBottom":  "2px solid #1a56db",
-                        "background":    "transparent",
-                        "cursor":        "pointer",
+                        "padding":      "10px 20px",
+                        "fontSize":     "13px",
+                        "fontWeight":   "600",
+                        "fontFamily":   "'Inter', sans-serif",
+                        "color":        "#1a56db",
+                        "border":       "none",
+                        "borderBottom": "2px solid #1a56db",
+                        "background":   "transparent",
+                        "cursor":       "pointer",
                     },
                 )
                 for page in dash.page_registry.values()
@@ -84,7 +85,7 @@ app.layout = html.Div([
         ),
     ], style={"paddingLeft": "36px", "background": "#ffffff"}),
 
-    # ── URL sync (hidden) ─────────────────────────────────────────────────────
+    # ── URL ───────────────────────────────────────────────────────────────────
     dcc.Location(id="url", refresh="callback-nav"),
 
     # ── Page content ──────────────────────────────────────────────────────────
@@ -101,23 +102,20 @@ app.layout = html.Div([
 })
 
 
-# ── Callbacks ─────────────────────────────────────────────────────────────────
+# ── Single merged callback ────────────────────────────────────────────────────
 
 @callback(
     Output("url", "pathname"),
-    Input("nav-tabs", "value"),
-    prevent_initial_call=True,
-)
-def update_url(tab_value):
-    return tab_value
-
-
-@callback(
     Output("nav-tabs", "value"),
+    Input("nav-tabs", "value"),
     Input("url", "pathname"),
 )
-def update_active_tab(pathname):
-    return pathname
+def sync_nav(tab_value, pathname):
+    triggered = ctx.triggered_id
+    if triggered == "nav-tabs":
+        return tab_value, tab_value
+    return pathname, pathname
+
 
 if __name__ == "__main__":
     app.run(debug=True)

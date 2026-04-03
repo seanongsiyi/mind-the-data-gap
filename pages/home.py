@@ -397,7 +397,6 @@ layout = html.Div([
                     "Propose dynamic transfer rules varying by commuter type, region, and time-of-day.",
                     "Conduct cost-benefit analysis balancing commuter welfare and LTA sustainability.",
                     "Explore real-time adaptations for service disruptions and weather delays.",
-                    "Develop a regional analysis tool for emerging and declining neighbourhoods.",
                 ])
             ],
         ], style={
