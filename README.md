@@ -16,8 +16,9 @@ This project investigates how the 45-minute bus transfer window can be made more
 |------|-------------|
 | **Home** | Project overview, transfer rules reference, and team directory |
 | **Visualisation Suite** | Explore transfer time and volume trends by age group, region, and time of day |
+| **Delay Simulator** | Evaluate transfer window performance under different delay scenarios |
 | **Policy Simulator** | Simulate cost-benefit tradeoffs of proposed transfer window changes by patron type and region |
-| **Delay Simulation** | Evaluate transfer window performance under different delay scenarios |
+
 
 ---
 
