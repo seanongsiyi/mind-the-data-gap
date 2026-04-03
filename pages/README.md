@@ -22,6 +22,7 @@ Each page reads from the `data/` folder at the project root. The required files 
 | `singapore_planning_areas.geojson` | page1, page2 |
 | `final_cleaned_delay_sim_results.csv` | page2 |
 | `welfare_marginal.csv` | page3 |
+| `welfare_results.csv` | page3 |
 | `welfare_results_regional.csv` | page3 |
 | `spec_info.csv` | page3 |
 
