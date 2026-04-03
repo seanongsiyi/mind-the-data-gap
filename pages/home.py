@@ -386,6 +386,35 @@ layout = html.Div([
         "marginBottom": "28px",
     }),
 
+    # ── Definitions ─────────────────────────────────────────────────────────────
+
+    html.Div([
+        html.Div([
+            section_tag("Definitions"),
+            html.Div([
+                html.B("Genuine Transfers Broken:"),
+                html.P(
+                "Journeys that are a single journey but split into 2 due to transfer window",
+                style={"fontSize": "13px", "color": C["secondary"], "fontFamily": FONT,
+                       "lineHeight": "1.7", "margin": "12px 0 12px"},
+                ),
+                html.B("Wrongly Merged Journeys:"),
+                html.P(
+                "Journeys that are separate journeys but merged into 1 under the transfer window",
+                style={"fontSize": "13px", "color": C["secondary"], "fontFamily": FONT,
+                       "lineHeight": "1.7", "margin": "12px 0 12px"},)
+
+        ], style={"marginTop": "20px"})
+
+    ], style={
+        "background":   C["surface"],
+        "border":       f"1px solid {C['border']}",
+        "borderRadius": "10px",
+        "padding":      "28px",
+        "marginBottom": "28px",
+    })
+    ]),
+
     # ── Team ──────────────────────────────────────────────────────────────────
     html.Div([
         html.Div([
