@@ -25,33 +25,58 @@ This project investigates how the 45-minute bus transfer window can be made more
 ## Project Structure
 ```
 mind-the-data-gap/
-├── assets/              # Images and static files (commuter characters, icons)
-├── callbacks/           # Shared callback logic
+├── .vscode/
+│   └── settings.json
+├── assets/                          # Static files
+│   ├── giveway_glenda.png
+│   ├── movein_martin.png
+│   ├── mrt_picture.png
+│   └── standup_stacey.png
+├── callbacks/                       # Shared callback logic
 │   ├── __init__.py
 │   └── predictions.py
-├── data/                # Data files (see Data Dependencies below)
-├── models/              # Jupyter notebooks for modelling and analysis
-│   ├── classifier.ipynb
+├── data/                            # Data files (see Data Dependencies below)
+│   ├── dataclean2.ipynb
+│   ├── df_regions_all_cols.ipynb
+│   ├── df3_regions.ipynb
+│   ├── final_cleaned_delay_sim_results.csv
+│   ├── final_delays_updated.csv
+│   ├── singapore_map.geojson
+│   ├── singapore_planning_areas.geojson
+│   ├── spec_info.csv
+│   ├── trf_region_pair.csv
+│   ├── trf_time_distribution.csv
+│   ├── welfare_marginal.csv
+│   ├── welfare_results_regional.csv
+│   ├── welfare_results.csv
+│   └── README.md
+├── models/                          # Modelling and analysis notebooks
 │   ├── classifier_lenient.ipynb
 │   ├── classifier_strict.ipynb
+│   ├── classifier.ipynb
 │   ├── delay_simulation.ipynb
+│   ├── functions_test.ipynb
 │   ├── functions.py
+│   ├── Hexbin density map.ipynb
+│   ├── transfer_analysis.ipynb
+│   ├── visualisations.ipynb
 │   ├── welfare_analysis.ipynb
 │   └── README.md
-├── pages/               # Dash page modules
+├── pages/                           # Dash page modules
 │   ├── home.py
 │   ├── page1.py
 │   ├── page2.py
 │   ├── page3.py
 │   ├── page4.py
 │   └── README.md
-├── test/                # Test scripts
-├── app.py               # Main Dash app entry point
-├── requirements.txt     # Python dependencies
-└── README.md
+├── test/                            # Test scripts
+│   ├── page1_sgtest.py
+│   └── page3_sgtest.py
+├── .gitignore
+├── app.py                           # Main Dash app entry point
+├── README.md
+└── requirements.txt
 ```
-
----
 
 ## Data Dependencies
 
