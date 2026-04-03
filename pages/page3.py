@@ -41,7 +41,8 @@ df_region = pd.read_csv((csv_path_regional))
 
 unique_specs = df['spec'].unique()
 unique_patron = df['patron'].unique()
-unique_region =  ['All regions'] + list(df_region['region_value'].unique())
+sorted_regions = sorted(df_region['region_value'].unique())
+unique_region =  ['All regions'] + sorted_regions
 unique_description = df_spec_info['description']
 
 SPEC_OPTIONS = [{'label': str(val).capitalize(), 'value': val} for val in unique_specs]
