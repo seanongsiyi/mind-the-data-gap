@@ -42,12 +42,12 @@ def get_welfare_summary(patron, window, spec):
         'window_new_journey_n':     row['window_new_journey_n'],
         # split error: window too strict, breaks classifier-valid transfers → commuter overcharged
         'split_error_n':            row['wrongly_split_n'],
-        'split_error_pct':          row['wrongly_split_pct'],          # % of all pairs
-        'split_error_cond_pct':     row['wrongly_split_cond_pct'],     # % of classifier-said transfers
+        'split_error_pct_all':      row['wrongly_split_pct_all'],      # % of all pairs
+        'split_error_pct':          row['wrongly_split_pct'],          # % of classifier-said transfers
         # merge error: window too lenient, links classifier-separate journeys → fare undercharged
         'merge_error_n':            row['wrongly_merged_n'],
-        'merge_error_pct':          row['wrongly_merged_pct'],         # % of all pairs
-        'merge_error_cond_pct':     row['wrongly_merged_cond_pct'],    # % of classifier-said new journeys
+        'merge_error_pct_all':      row['wrongly_merged_pct_all'],     # % of all pairs
+        'merge_error_pct':          row['wrongly_merged_pct'],         # % of classifier-said new journeys
     }
  
  
@@ -249,27 +249,10 @@ def query_delay_sim(
             .reset_index(drop=True)
         )
 
-    return {
-        'spec':                classifier_type,
-        'delay_mins':          delay_mins,
-        'bus_window_mins':     bus_window,
-        'patron':              patron,
-        'classifier_journeys': classifier_journeys,
-        'window_journeys':     window_journeys,
-        'journey_difference':  journey_difference,
-        'wrongly_split_n':     int(main_row['wrongly_split_n']),
-        'wrongly_merged_n':    int(main_row['wrongly_merged_n']),
-        'wrongly_split_pct':   float(main_row['wrongly_split_pct']),
-        'wrongly_merged_pct':  float(main_row['wrongly_merged_pct']),
-        'by_patron':           get_breakdown('patron',          'patron'),
-        'by_dest_region':      get_breakdown('dest_region',     'dest_region'),
-        'by_orig_region':      get_breakdown('orig_region',     'orig_region'),
-        'by_hour':             get_breakdown('next_entry_hour', 'hour'),
-    }
+
     def get_hour_region_breakdown(region=None):
         sub_cross = sub[sub['breakdown_type'] == 'hour_x_dest_region'].copy()
         if region is not None:
-            # frontend passes a specific region to filter
             sub_cross = sub_cross[sub_cross['dest_region'] == region]
         return (
             sub_cross[[
@@ -282,8 +265,8 @@ def query_delay_sim(
             .reset_index(drop=True)
         )
 
+    
     return {
-        # existing keys unchanged
         'spec':                classifier_type,
         'delay_mins':          delay_mins,
         'bus_window_mins':     bus_window,
@@ -299,7 +282,6 @@ def query_delay_sim(
         'by_dest_region':      get_breakdown('dest_region',     'dest_region'),
         'by_orig_region':      get_breakdown('orig_region',     'orig_region'),
         'by_hour':             get_breakdown('next_entry_hour', 'hour'),
-
         'by_hour_dest_region': get_hour_region_breakdown(region=None),
     }
 
