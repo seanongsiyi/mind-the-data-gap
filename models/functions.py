@@ -160,110 +160,112 @@ def get_trf_temporal_pattern(patron=None):
     return df[['hour_of_day', 'PATRON_CATG_DESC_TXT', 'avg_transfer_time_mins', 'count']].reset_index(drop=True)
 
 ## Delay Simulator Functions
-
 def query_delay_sim(
-    delay_mins: int,
-    bus_window: int,
-    classifier_type: str,   # 'baseline', 'lenient', 'strict'
-    patron: str = 'all',
-    df: pd.DataFrame = None
+    delay_mins:      int,
+    bus_window:      int,
+    classifier_type: str,
+    patron:          str = 'all',
+    df:              pd.DataFrame = None
 ):
-    """
-    Returns summary + breakdowns for delay simulation, with journeys computed per patron.
-
-    Parameters
-    ----------
-    delay_mins : int
-        Delay in minutes (0,5,10,15,20)
-    bus_window : int
-        Transfer window in minutes (35,40,...,60)
-    classifier_type : str
-        'baseline', 'lenient', 'strict'
-    patron : str
-        'all', 'Student', 'Adult', 'Senior Citizen'
-    df : pd.DataFrame
-        The precomputed results CSV (final_df)
-
-    Returns
-    -------
-    dict
-    """
     if df is None:
-        raise ValueError("Please provide a DataFrame with precomputed results (final_df)")
+        raise ValueError("Please provide final_df")
 
-    valid_delays = [0, 5, 10, 15, 20]
+    valid_delays  = [0, 5, 10, 15, 20]
     valid_windows = list(range(35, 65, 5))
-    valid_specs = ['baseline', 'lenient', 'strict']
+    valid_specs   = ['baseline', 'lenient', 'strict']
 
-    if delay_mins not in valid_delays:
-        raise ValueError(f"delay_mins must be one of {valid_delays}")
-    if bus_window not in valid_windows:
-        raise ValueError(f"bus_window must be one of {valid_windows}")
-    if classifier_type not in valid_specs:
-        raise ValueError(f"classifier_type must be one of {valid_specs}")
+    if delay_mins      not in valid_delays:  raise ValueError(f"delay_mins must be one of {valid_delays}")
+    if bus_window      not in valid_windows: raise ValueError(f"bus_window must be one of {valid_windows}")
+    if classifier_type not in valid_specs:   raise ValueError(f"classifier_type must be one of {valid_specs}")
 
     sub = df[
-        (df['delay_mins'] == delay_mins) &
-        (df['bus_window_mins'] == bus_window) &
-        (df['spec'] == classifier_type)
+        (df['delay_mins']      == delay_mins)  &
+        (df['bus_window_mins'] == bus_window)  &
+        (df['spec']            == classifier_type)
     ].copy()
 
     if sub.empty:
         raise ValueError("No data found for given parameters")
 
     if patron == 'all':
-        overall_row = sub[sub['breakdown_type'] == 'overall'].iloc[0]
-        main_row = overall_row
-        classifier_journeys = int(overall_row['classifier_journeys']) if not pd.isna(overall_row['classifier_journeys']) else None
-        window_journeys = int(overall_row['window_journeys']) if not pd.isna(overall_row['window_journeys']) else None
+        main_row = sub[sub['breakdown_type'] == 'overall'].iloc[0]
     else:
         patron_rows = sub[sub['breakdown_type'] == 'patron']
         if patron not in patron_rows['breakdown_value'].values:
-            raise ValueError(f"Patron '{patron}' not found")
+            raise ValueError(f"Patron '{patron}' not found. Available: {patron_rows['breakdown_value'].tolist()}")
         main_row = patron_rows[patron_rows['breakdown_value'] == patron].iloc[0]
-        classifier_journeys = int(main_row['classifier_journeys']) if not pd.isna(main_row['classifier_journeys']) else None
-        window_journeys = None  # not computed at patron level
 
-    journey_difference = None if (window_journeys is None or classifier_journeys is None) else int(window_journeys - classifier_journeys)
+    classifier_journeys = int(main_row['classifier_journeys']) if not pd.isna(main_row['classifier_journeys']) else None
+    window_journeys     = int(main_row['window_journeys'])     if not pd.isna(main_row['window_journeys'])     else None
+    journey_difference  = (window_journeys - classifier_journeys) if (window_journeys and classifier_journeys) else None
 
     def get_breakdown(breakdown_type, col_name):
-        df_break = sub[sub['breakdown_type'] == breakdown_type].copy()
-
-        df_break = df_break[[
-            'breakdown_value',
-            'n_pairs',
-            'wrongly_split_n',
-            'wrongly_merged_n',
-            'wrongly_split_pct',
-            'wrongly_merged_pct',
-            'wrongly_split_pct_all',
-            'wrongly_merged_pct_all'
-        ]].rename(columns={'breakdown_value': col_name}) \
-         .sort_values('wrongly_split_pct', ascending=False) \
-         .reset_index(drop=True)
-
-        return df_break
+        return (
+            sub[sub['breakdown_type'] == breakdown_type][[
+                'breakdown_value', 'n_pairs', 'n_cards',
+                'classifier_journeys', 'window_journeys',
+                'wrongly_split_n',       'wrongly_merged_n',
+                'wrongly_split_pct',     'wrongly_merged_pct',
+                'wrongly_split_pct_all', 'wrongly_merged_pct_all',
+            ]]
+            .rename(columns={'breakdown_value': col_name})
+            .sort_values('wrongly_split_pct', ascending=False)
+            .reset_index(drop=True)
+        )
 
     return {
-        'spec': classifier_type,
-        'delay_mins': delay_mins,
-        'bus_window_mins': bus_window,
-        'patron': patron,
+        'spec':                classifier_type,
+        'delay_mins':          delay_mins,
+        'bus_window_mins':     bus_window,
+        'patron':              patron,
         'classifier_journeys': classifier_journeys,
-        'window_journeys': window_journeys,
-        'journey_difference': journey_difference,
-        'wrongly_split_n': int(main_row['wrongly_split_n']),
-        'wrongly_merged_n': int(main_row['wrongly_merged_n']),
-        'wrongly_split_pct': float(main_row['wrongly_split_pct']),
-        'wrongly_merged_pct': float(main_row['wrongly_merged_pct']),
-        'by_patron': get_breakdown('patron', 'patron'),
-        'by_dest_region': get_breakdown('dest_region', 'dest_region'),
-        'by_orig_region': get_breakdown('orig_region', 'orig_region'),
-        'by_hour': get_breakdown('next_entry_hour', 'hour')
+        'window_journeys':     window_journeys,
+        'journey_difference':  journey_difference,
+        'wrongly_split_n':     int(main_row['wrongly_split_n']),
+        'wrongly_merged_n':    int(main_row['wrongly_merged_n']),
+        'wrongly_split_pct':   float(main_row['wrongly_split_pct']),
+        'wrongly_merged_pct':  float(main_row['wrongly_merged_pct']),
+        'by_patron':           get_breakdown('patron',          'patron'),
+        'by_dest_region':      get_breakdown('dest_region',     'dest_region'),
+        'by_orig_region':      get_breakdown('orig_region',     'orig_region'),
+        'by_hour':             get_breakdown('next_entry_hour', 'hour'),
     }
+    def get_hour_region_breakdown(region=None):
+        sub_cross = sub[sub['breakdown_type'] == 'hour_x_dest_region'].copy()
+        if region is not None:
+            # frontend passes a specific region to filter
+            sub_cross = sub_cross[sub_cross['dest_region'] == region]
+        return (
+            sub_cross[[
+                'breakdown_value', 'dest_region', 'n_pairs',
+                'wrongly_split_n',       'wrongly_merged_n',
+                'wrongly_split_pct',     'wrongly_merged_pct',
+            ]]
+            .rename(columns={'breakdown_value': 'hour'})
+            .sort_values(['dest_region', 'hour'])
+            .reset_index(drop=True)
+        )
 
+    return {
+        # existing keys unchanged
+        'spec':                classifier_type,
+        'delay_mins':          delay_mins,
+        'bus_window_mins':     bus_window,
+        'patron':              patron,
+        'classifier_journeys': classifier_journeys,
+        'window_journeys':     window_journeys,
+        'journey_difference':  journey_difference,
+        'wrongly_split_n':     int(main_row['wrongly_split_n']),
+        'wrongly_merged_n':    int(main_row['wrongly_merged_n']),
+        'wrongly_split_pct':   float(main_row['wrongly_split_pct']),
+        'wrongly_merged_pct':  float(main_row['wrongly_merged_pct']),
+        'by_patron':           get_breakdown('patron',          'patron'),
+        'by_dest_region':      get_breakdown('dest_region',     'dest_region'),
+        'by_orig_region':      get_breakdown('orig_region',     'orig_region'),
+        'by_hour':             get_breakdown('next_entry_hour', 'hour'),
 
-
+        'by_hour_dest_region': get_hour_region_breakdown(region=None),
+    }
 
 '''
 
