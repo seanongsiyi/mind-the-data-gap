@@ -249,27 +249,10 @@ def query_delay_sim(
             .reset_index(drop=True)
         )
 
-    return {
-        'spec':                classifier_type,
-        'delay_mins':          delay_mins,
-        'bus_window_mins':     bus_window,
-        'patron':              patron,
-        'classifier_journeys': classifier_journeys,
-        'window_journeys':     window_journeys,
-        'journey_difference':  journey_difference,
-        'wrongly_split_n':     int(main_row['wrongly_split_n']),
-        'wrongly_merged_n':    int(main_row['wrongly_merged_n']),
-        'wrongly_split_pct':   float(main_row['wrongly_split_pct']),
-        'wrongly_merged_pct':  float(main_row['wrongly_merged_pct']),
-        'by_patron':           get_breakdown('patron',          'patron'),
-        'by_dest_region':      get_breakdown('dest_region',     'dest_region'),
-        'by_orig_region':      get_breakdown('orig_region',     'orig_region'),
-        'by_hour':             get_breakdown('next_entry_hour', 'hour'),
-    }
+
     def get_hour_region_breakdown(region=None):
         sub_cross = sub[sub['breakdown_type'] == 'hour_x_dest_region'].copy()
         if region is not None:
-            # frontend passes a specific region to filter
             sub_cross = sub_cross[sub_cross['dest_region'] == region]
         return (
             sub_cross[[
@@ -282,8 +265,8 @@ def query_delay_sim(
             .reset_index(drop=True)
         )
 
+    
     return {
-        # existing keys unchanged
         'spec':                classifier_type,
         'delay_mins':          delay_mins,
         'bus_window_mins':     bus_window,
@@ -299,7 +282,6 @@ def query_delay_sim(
         'by_dest_region':      get_breakdown('dest_region',     'dest_region'),
         'by_orig_region':      get_breakdown('orig_region',     'orig_region'),
         'by_hour':             get_breakdown('next_entry_hour', 'hour'),
-
         'by_hour_dest_region': get_hour_region_breakdown(region=None),
     }
 
