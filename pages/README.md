@@ -9,7 +9,7 @@ This folder contains all page modules for the Mind the Data Gap dashboard. Each 
 | `home.py` | `/` | Home | Project overview, transfer rules, team members |
 | `page1.py` | `/page-1` | Visualisation Suite | Explore transfer time and volume trends by age group and region |
 | `page2.py` | `/page-2` | Delay Simulator | Evaluate transfer window performance under different delay scenarios |
-| `page3.py` | `/page-3` | Policy Simulator | Cost-benefit analysis of proposed transfer window changes by patron type and region |
+| `page3.py` | `/page-3` | Policy Simulator | Analysis of proposed transfer window |
 
 ## Data Dependencies
 
