@@ -61,13 +61,11 @@ The `data/` folder is not fully committed to this repository. Large CSV files mu
 |------|-------------|-------|
 | `trf_time_distribution.csv` | page1 | Transfer time by age group and hour |
 | `trf_region_pair.csv` | page1 | Transfer volume by origin-destination pair and hour |
-| `singapore_planning_areas.geojson` | page1, page4 | Singapore planning area boundaries |
+| `singapore_planning_areas.geojson` | page1, page2 | Singapore planning area boundaries |
+| `final_cleaned_delay_sim_results.csv` | page2 | Auto-generated from above on app startup |
 | `welfare_marginal.csv` | page3 | Marginal welfare results by patron and spec |
 | `welfare_results_regional.csv` | page3 | Regional welfare results |
 | `spec_info.csv` | page3 | Model specification descriptions |
-| `final_delays_updated.csv` | page4 | Raw delay simulation input |
-| `final_cleaned_delay_sim_results.csv` | page4 | Auto-generated from above on app startup |
-
 ---
 
 ## Setup & Running
