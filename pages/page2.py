@@ -647,10 +647,10 @@ def get_patron_kpi_data(delay_duration=None, transfer_window=45):
 
         rows.append({
             "patron": row["patron"],
-            "Transfers correctly identified": correctly_kept_n,
-            "Genuine transfers broken": row["wrongly_split_n"],
-            "Separate journeys correctly split": correctly_split_n,
-            "Wrongly merged journeys": row["wrongly_merged_n"],
+            "Correctly merged": correctly_kept_n,
+            "Wrongly split": row["wrongly_split_n"],
+            "Correctly split": correctly_split_n,
+            "Wrongly merged": row["wrongly_merged_n"],
         })
 
     df = pd.DataFrame(rows)
@@ -673,12 +673,12 @@ def build_patron_chart(delay_duration=None, transfer_window=45):
         return go.Figure().add_annotation(text="No patron data available")
     
     metrics = [
-        'Transfers correctly identified',
-        'Genuine transfers broken',
-        'Separate journeys correctly split',
-        'Wrongly merged journeys',
+        'Correctly merged',
+        'Wrongly merged',
+        'Correctly split',
+        'Wrongly split',
     ]
-    colors = ["#10b981",'#dc2626',"#0ea5e9",'#f59e0b']
+    colors = ["#10b981", "#f59e0b", "#0ea5e9", "#dc2626"]
     
     fig = go.Figure()
     
@@ -691,6 +691,7 @@ def build_patron_chart(delay_duration=None, transfer_window=45):
             text=[f"{int(v):,}" for v in df[metric]],
             textposition="outside",
             textfont=dict(size=10, family=FONT_MONO),
+            cliponaxis=False,
         ))
     
     fig.update_layout(
@@ -698,7 +699,7 @@ def build_patron_chart(delay_duration=None, transfer_window=45):
         plot_bgcolor="rgba(0,0,0,0)",
         hovermode = False,
         font=dict(family=FONT_SANS, color=C["text"], size=12),
-        margin=dict(l=48, r=24, t=24, b=48),
+        margin=dict(l=48, r=24, t=80, b=48),
         xaxis=dict(
             **AXIS_STYLE,
             title="Patron Type",
@@ -707,7 +708,7 @@ def build_patron_chart(delay_duration=None, transfer_window=45):
         ),
         yaxis=dict(**AXIS_STYLE, title="Number of Journeys"),
         barmode='group',
-        height=300,
+        height=400,
         legend=dict(
             orientation="h",
             yanchor="top",
@@ -1275,28 +1276,28 @@ def update_figures(region, planning_area, time_of_day, delay_duration, transfer_
 
         tradeoff_kpis = html.Div([
             tradeoff_kpi_card(
-                "Transfers correctly identified",
+                "Correctly merged",
                 f"{correctly_kept_n:,}",
                 f"{correctly_kept_pct:.2f}% of genuine transfers",
                 "#10b981",
             ),
             tradeoff_kpi_card(
-                "Genuine transfers broken",
-                f"{wrongly_split_n:,}",
-                f"{wrongly_split_pct:.2f}% of genuine transfers",
-                "#dc2626",
+                "Wrongly merged",
+                f"{wrongly_merged_n:,}",
+                f"{wrongly_merged_pct:.2f}% of separate journeys",
+                "#f59e0b",
             ),
             tradeoff_kpi_card(
-                "Separate journeys correctly split",
+                "Correctly split",
                 f"{correctly_split_n:,}",
                 f"{correctly_split_pct:.2f}% of separate journeys",
                 "#0ea5e9",
             ),
             tradeoff_kpi_card(
-                "Wrongly merged journeys",
-                f"{wrongly_merged_n:,}",
-                f"{wrongly_merged_pct:.2f}% of separate journeys",
-                "#f59e0b",
+                "Wrongly split",
+                f"{wrongly_split_n:,}",
+                f"{wrongly_split_pct:.2f}% of genuine transfers",
+                "#dc2626",
             ),
             ])
 
