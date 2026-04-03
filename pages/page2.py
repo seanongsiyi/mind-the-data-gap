@@ -61,7 +61,7 @@ else:
     DELAY_SIM_DF = None
 
 
-dash.register_page(__name__, path="/page-4", name="Delay Simulation")
+dash.register_page(__name__, path="/page-4", name="Delay Simulator")
 
 # ── Design tokens ───────────────────────────
 
