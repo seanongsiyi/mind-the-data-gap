@@ -89,6 +89,7 @@ The `data/` folder is not fully committed to this repository. Large CSV files mu
 | `singapore_planning_areas.geojson` | page1, page2 | Singapore planning area boundaries |
 | `final_cleaned_delay_sim_results.csv` | page2 | Auto-generated from above on app startup |
 | `welfare_marginal.csv` | page3 | Marginal welfare results by patron and spec |
+| `welfare_results.csv` | page3 | Welfare results |
 | `welfare_results_regional.csv` | page3 | Regional welfare results |
 | `spec_info.csv` | page3 | Model specification descriptions |
 ---
