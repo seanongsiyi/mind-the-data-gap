@@ -162,7 +162,7 @@ layout = html.Div([
             }),
             html.P(
                 "Current transfer rules leave elderly and differently-abled commuters at a disadvantage. "
-                "This project investigates how transfer windows can be made more equitable and efficient.",
+                "This project investigates how the 45-minute bus transfer window can be made more equitable and efficient.",
                 style={
                     "fontSize":   "14px",
                     "color":      C["secondary"],
@@ -176,7 +176,7 @@ layout = html.Div([
 
         # Transfer window quick-facts
         html.Div([
-            html.Div("Current Transfer Windows", style={
+            html.Div("Current Transfer Window", style={
                 "fontSize":      "11px",
                 "fontWeight":    "600",
                 "letterSpacing": "0.08em",
@@ -200,30 +200,10 @@ layout = html.Div([
                         "marginTop": "2px",
                     }),
                 ], style={
-                    "padding":       "14px 18px",
-                    "background":    C["accent_soft"],
-                    "borderRadius":  "8px",
-                    "marginBottom":  "8px",
-                    "borderLeft":    f"3px solid {C['accent']}",
-                }),
-                html.Div([
-                    html.Div("15 min", style={
-                        "fontSize":   "22px",
-                        "fontWeight": "700",
-                        "color":      C["success"],
-                        "fontFamily": FONT_MONO,
-                    }),
-                    html.Div("Train → Train", style={
-                        "fontSize":  "12px",
-                        "color":     C["secondary"],
-                        "fontFamily": FONT,
-                        "marginTop": "2px",
-                    }),
-                ], style={
                     "padding":      "14px 18px",
-                    "background":   C["success_soft"],
+                    "background":   C["accent_soft"],
                     "borderRadius": "8px",
-                    "borderLeft":   f"3px solid {C['success']}",
+                    "borderLeft":   f"3px solid {C['accent']}",
                 }),
             ]),
         ], style={
@@ -284,25 +264,18 @@ layout = html.Div([
         ),
         rule_row(
             5,
-            "Maximum 15 minutes before being charged for transfers between different train stations.",
-            "15 MIN · TRAIN",
-            C["accent"], C["accent_soft"],
-        ),
-        rule_row(
-            6,
             "The current bus service must not be the same number as the immediately preceding bus service.",
             "NO SAME BUS",
             C["danger"], C["danger_soft"],
         ),
         rule_row(
-            7,
+            6,
             "No exit and re-entry at the same train station.",
             "NO RE-ENTRY",
             C["danger"], C["danger_soft"],
             note=(
                 "Exceptions: Bukit Panjang, Newton, and Tampines MRT interchanges require tapping out "
-                "and back in when transferring between lines. Must be completed within 15 minutes or "
-                "treated as a new journey."
+                "and back in when transferring between lines."
             ),
         ),
     ], style={
@@ -326,18 +299,17 @@ layout = html.Div([
             }),
             html.P(
                 "Current public transfer rules enforce a 45-minute window for train-bus and bus-bus "
-                "transfers, and a 15-minute window for train-train transfers. These policies leave "
-                "certain demographics — including the elderly and differently-abled — in inequitable "
-                "situations where reduced mobility results in higher fares.",
+                "transfers. These policies leave certain demographics — including the elderly and "
+                "differently-abled — in inequitable situations where reduced mobility results in higher fares.",
                 style={"fontSize": "13px", "color": C["secondary"], "fontFamily": FONT,
                        "lineHeight": "1.7", "margin": "0 0 12px"},
             ),
             html.P(
                 "This project evaluates, from a policy standpoint, how public transfer rules can be "
                 "optimised to enhance both equity and efficiency. It assesses demographic fairness of "
-                "existing policies and proposes dynamic transfer rules that vary across demographics, "
-                "regions, and time-of-day. A comprehensive cost-benefit analysis informs policy reforms "
-                "that better balance commuter welfare with LTA's operational sustainability.",
+                "the existing 45-minute transfer window and proposes dynamic transfer rules that vary "
+                "across demographics, regions, and time-of-day. A comprehensive cost-benefit analysis "
+                "informs policy reforms that better balance commuter welfare with LTA's operational sustainability.",
                 style={"fontSize": "13px", "color": C["secondary"], "fontFamily": FONT,
                        "lineHeight": "1.7", "margin": "0 0 12px"},
             ),
@@ -393,7 +365,7 @@ layout = html.Div([
                 ], style={"display": "flex", "gap": "12px", "alignItems": "flex-start",
                           "marginBottom": "14px"})
                 for i, obj in enumerate([
-                    "Assess demographic fairness of existing 45-min and 15-min transfer windows.",
+                    "Assess demographic fairness of the existing 45-minute bus transfer window.",
                     "Propose dynamic transfer rules varying by commuter type, region, and time-of-day.",
                     "Conduct cost-benefit analysis balancing commuter welfare and LTA sustainability.",
                     "Explore real-time adaptations for service disruptions and weather delays.",
