@@ -109,7 +109,7 @@ pip install -r requirements.txt
 
 **3. Add data files**
 
-Place the required CSV and GeoJSON files in the `data/` folder. Contact a backend team member for access.
+Place the required CSV files in the `data/` folder. Contact a backend team member for access.
 
 **4. Run the app**
 ```bash
