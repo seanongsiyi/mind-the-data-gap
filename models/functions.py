@@ -42,12 +42,12 @@ def get_welfare_summary(patron, window, spec):
         'window_new_journey_n':     row['window_new_journey_n'],
         # split error: window too strict, breaks classifier-valid transfers → commuter overcharged
         'split_error_n':            row['wrongly_split_n'],
-        'split_error_pct':          row['wrongly_split_pct'],          # % of all pairs
-        'split_error_cond_pct':     row['wrongly_split_cond_pct'],     # % of classifier-said transfers
+        'split_error_pct_all':      row['wrongly_split_pct_all'],      # % of all pairs
+        'split_error_pct':          row['wrongly_split_pct'],          # % of classifier-said transfers
         # merge error: window too lenient, links classifier-separate journeys → fare undercharged
         'merge_error_n':            row['wrongly_merged_n'],
-        'merge_error_pct':          row['wrongly_merged_pct'],         # % of all pairs
-        'merge_error_cond_pct':     row['wrongly_merged_cond_pct'],    # % of classifier-said new journeys
+        'merge_error_pct_all':      row['wrongly_merged_pct_all'],     # % of all pairs
+        'merge_error_pct':          row['wrongly_merged_pct'],         # % of classifier-said new journeys
     }
  
  
