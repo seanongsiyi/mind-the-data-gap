@@ -391,9 +391,21 @@ layout = html.Div([
         html.Div([
             section_tag("Definitions"),
             html.Div([
-                html.B("Genuine Transfers Broken:"),
+                html.B("Correctly Split Journeys:"),
+                html.P(
+                "Journeys that are a separate journeys and correctly split into 2 due to transfer window",
+                style={"fontSize": "13px", "color": C["secondary"], "fontFamily": FONT,
+                       "lineHeight": "1.7", "margin": "12px 0 12px"},
+                ),
+                html.B("Wrongly Split Journeys:"),
                 html.P(
                 "Journeys that are a single journey but split into 2 due to transfer window",
+                style={"fontSize": "13px", "color": C["secondary"], "fontFamily": FONT,
+                       "lineHeight": "1.7", "margin": "12px 0 12px"},
+                ),
+                html.B("Correctly Merged Journeys:"),
+                html.P(
+                "Journeys that are a single journey and correctly merged into 1 due to transfer window",
                 style={"fontSize": "13px", "color": C["secondary"], "fontFamily": FONT,
                        "lineHeight": "1.7", "margin": "12px 0 12px"},
                 ),
