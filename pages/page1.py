@@ -500,7 +500,7 @@ layout = html.Div([
                 "fontFamily": FONT_SANS,
             }),
             html.P(
-                "Journey pattern analysis — Singapore public transport transfer data",
+                "Explore journey trends across demographics, regions, and time of day.",
                 style={
                     "margin":     "4px 0 0",
                     "fontSize":   "13px",
@@ -521,9 +521,9 @@ layout = html.Div([
     info_box(
         "About This Page",
         [
-            html.Div(["1. ", html.Strong("Average Transfer Time by Hour"), " — compare how long each age group takes to complete a transfer across the day."]),
-            html.Div(["2. ", html.Strong("Transfer Volume by Hour"), " — see when transfers are most concentrated and which age groups contribute most."]),
-            html.Div(["3. ", html.Strong("Spatial Transfer Analysis"), " — explore inbound transfer volumes across Singapore planning areas, filterable by region and time of day."]),
+            html.Div(["1. ", html.Strong("Average Transfer Time by Hour"), " Compare how long each age group takes to complete a transfer across the day."]),
+            html.Div(["2. ", html.Strong("Transfer Volume by Hour"), " See when transfers are most concentrated and which age groups contribute most."]),
+            html.Div(["3. ", html.Strong("Spatial Transfer Analysis"), " Explore inbound transfer volumes across Singapore planning areas, filterable by region and time of day."]),
         ]
     ),
 
@@ -602,7 +602,7 @@ layout = html.Div([
     # ── 3. Spatial Transfer Map ───────────────────────────────────────────────
     html.Div(card(
         "Spatial Transfer Analysis",
-        "Transfer volumes to each planning area — filter by region, planning area, or time of day",
+        "Transfer volumes to each planning area (filter by region, planning area, or time of day)",
         [
             html.Div([
                 html.Div([
@@ -671,7 +671,7 @@ layout = html.Div([
             html.P(
                 "Darker shading indicates higher inbound transfer volume. "
                 "Select a region or planning area to highlight it. "
-                "Grey areas have no data for the selected filters.",
+                ,
                 style={"fontSize": "12px", "color": C["secondary"],
                        "margin": "12px 0 0", "fontFamily": FONT_SANS},
             ),
