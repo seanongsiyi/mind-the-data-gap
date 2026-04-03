@@ -91,6 +91,42 @@ def get_marginal_summary(patron, spec, window_from):
         'marginal_cost_n':    row['marginal_cost_n'],      # newly linked where classifier says new journey → illegitimate link
     }
 
+def get_marginal_at_45(patron, spec, window_to):
+    """
+    Look up the marginal welfare effect relative to the 45-minute baseline window.
+
+    Inputs:
+    - patron: 'Overall', 'Adult', 'Student', 'Senior Citizen'
+    - spec: 'strict', 'baseline', 'lenient'
+    - window_to: integer window size to compare against 45 (e.g. 50, 55, 40, 35)
+
+    Returns:
+    - dict with newly linked pairs, marginal benefit (legitimate transfers rescued),
+      and marginal cost (illegitimate links added), relative to 45-min window
+    """
+    df = pd.read_csv(os.path.join(_data_dir, 'welfare_results.csv'))
+
+    row_45  = df[(df['spec'] == spec) & (df['patron'] == patron) & (df['window_mins'] == 45)]
+    row_cmp = df[(df['spec'] == spec) & (df['patron'] == patron) & (df['window_mins'] == window_to)]
+
+    if row_45.empty or row_cmp.empty:
+        return f"No data found for patron='{patron}', spec='{spec}', window_to={window_to}"
+
+    row_45  = row_45.iloc[0]
+    row_cmp = row_cmp.iloc[0]
+
+    marginal_benefit_n = row_45['wrongly_split_n']  - row_cmp['wrongly_split_n']
+    marginal_cost_n    = row_cmp['wrongly_merged_n'] - row_45['wrongly_merged_n']
+
+    return {
+        'spec':               spec,
+        'patron':             patron,
+        'window_ref':         45,
+        'window_to':          window_to,
+        'newly_linked_n':     marginal_benefit_n + marginal_cost_n,
+        'marginal_benefit_n': marginal_benefit_n,
+        'marginal_cost_n':    marginal_cost_n,
+    }
 ## Visualisation Suite functions
 # Frontend query functions (read from pre-computed CSVs)
 
