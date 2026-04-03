@@ -34,7 +34,7 @@ Each page reads from the `data/` folder at the project root. The required files 
    import dash
    dash.register_page(__name__, path="/page-N", name="Your Page Name")
 ```
-3. Define a `layout` variable — Dash will pick it up automatically.
+3. Define a `layout` variable.
 4. Use unique component IDs to avoid conflicts with other pages.
 
 ## Notes
