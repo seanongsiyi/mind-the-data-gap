@@ -1064,7 +1064,7 @@ layout = html.Div([
                     id="p4-patron-chart",
                     figure=build_patron_chart(),
                     config={"displayModeBar": False},
-                    style={"height": "300px"},
+                    style={"height": "400px"},
                 ),
             ),
         ],
@@ -1075,7 +1075,7 @@ layout = html.Div([
 ], style={
     "background":  C["bg"],
     "minHeight":   "100vh",
-    "padding":     "36px 48px",
+    "padding":     "36px 48px 220px 48px",
     "fontFamily":  FONT_SANS,
     "color":       C["text"],
     "maxWidth":    "1100px",
