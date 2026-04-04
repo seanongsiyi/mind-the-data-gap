@@ -417,7 +417,7 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
                 locations="planning_area_raw",
                 featureidkey="properties.PLN_AREA_N",
                 color="wrongly_split_pct",
-                labels={"wrongly_split_pct": "% of genuine transfers broken in that town"},
+                labels={"wrongly_split_pct": "% of wrongly split transfers in that town"},
                 color_continuous_scale=[
                     "#eaf2ff",
                     "#bfd6ff",
@@ -790,7 +790,7 @@ def color_legend(min_val=0, max_val=1.12):
     
     return html.Div([
         html.P(
-            "% of genuine transfers broken in that town",
+            "% of wrongly split transfers in that town",
             style={
                 "fontSize": "11px",
                 "fontWeight": "600",
@@ -860,7 +860,7 @@ layout = html.Div([
                 html.Div(["1. "] + [html.Strong("Hover over the map")] + [" to view detailed metrics for each planning area."]),
                 html.Div(["2. "] + [html.Strong("Select a region or planning area")] + [" to explore local impact."]),
                 html.Div(["3. "] + [html.Strong("Choose a time of day and delay duration")] + [" to simulate disruption scenarios."]),
-                html.Div(["4. "] + [html.Strong("Adjust the transfer window")] + [" to compare the trade-off between genuine transfers broken and wrongly merged journeys."]),
+                html.Div(["4. "] + [html.Strong("Adjust the transfer window")] + [" to compare the trade-off between wrongly split transfers and wrongly merged journeys."]),
                 html.Div(["5. "] + [html.Strong("Scroll down")] + [" to see how different patron types are affected by the transfer rules."]),
             ]
         ),
@@ -883,7 +883,7 @@ layout = html.Div([
     # ── Main card: Map + Controls ─────────────────────────────────────────────
     html.Div(card(
         "Regional Impact Map",
-        "Genuine transfers broken by transfer window / delays, shown as % of all transfers in each town (hover over map for details)",
+        "Wrongly split transfers, shown as % of all transfers in each town (hover over map for details)",
         [
             
 

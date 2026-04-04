@@ -391,7 +391,7 @@ layout = html.Div([
         html.Div([
             section_tag("Definitions"),
             html.Div([
-                html.B("Genuine Transfers Broken:"),
+                html.B("Wrongly Split Transfers:"),
                 html.P(
                 "Journeys that are a single journey but split into 2 due to transfer window",
                 style={"fontSize": "13px", "color": C["secondary"], "fontFamily": FONT,
