@@ -828,7 +828,7 @@ layout = html.Div([
     # Page header
     html.Div([
         html.Div([
-            html.H1("Delay Simulation", style={
+            html.H1("Delay Simulator", style={
                 "margin":     0,
                 "fontSize":   "20px",
                 "fontWeight": "600",
@@ -855,7 +855,7 @@ layout = html.Div([
     }),
     
     info_box(
-            "How to use this simulation",
+            "How to use this simulator",
             [
                 html.Div(["1. "] + [html.Strong("Hover over the map")] + [" to view detailed metrics for each planning area."]),
                 html.Div(["2. "] + [html.Strong("Select a region or planning area")] + [" to explore local impact."]),
