@@ -207,7 +207,7 @@ def query_delay_sim(
         raise ValueError("Please provide final_df")
 
     valid_delays  = [0, 5, 10, 15, 20]
-    valid_windows = list(range(35, 65, 5))
+    valid_windows = list(range(30, 65, 5))
     valid_specs   = ['baseline', 'lenient', 'strict']
 
     if delay_mins      not in valid_delays:  raise ValueError(f"delay_mins must be one of {valid_delays}")
