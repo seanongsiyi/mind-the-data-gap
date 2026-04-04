@@ -7,10 +7,6 @@ import numpy as np
 import json
 from pathlib import Path
 
-# ── Load delay simulation data ────────────────────────────────────────────────
-
-# ── Load / prepare delay simulation data ─────────────────────────────────────
-
 INPUT_PATH = Path("data/final_delays.csv")
 OUTPUT_PATH = Path("data/final_cleaned_delay_sim_results.csv")
 
@@ -103,15 +99,13 @@ AXIS_STYLE = dict(
 
 
 # ─────────────────────────────────────────────
-# PLACEHOLDER DATA
+# Configuration
 # ─────────────────────────────────────────────
 
 PLANNING_AREAS_GEOJSON_PATH = Path("data/singapore_planning_areas.geojson")
 
-# TODO: Replace with actual region list from backend
 REGIONS = ["All Regions", "North", "North-East", "East", "West", "Central"]
 
-# TODO: Replace with actual time-of-day options from backend
 TIMES_OF_DAY = [
     "Morning Peak (6am–9am)",
     "Off-Peak (9am–5pm)",
@@ -119,8 +113,6 @@ TIMES_OF_DAY = [
     "Night (8pm–12am)",
 ]
 
-
-# TODO: Replace with actual delay duration options from backend
 DELAY_DURATIONS = ["0 minutes", "5 minutes", "10 minutes", "15 minutes", "20 minutes"]
 
 
@@ -202,7 +194,7 @@ def query_delay_sim(
 
         if 'time_bucket' in sub.columns:
             cols.append('time_bucket')
-            
+        
         return (
             sub[sub['breakdown_type'] == breakdown_type][cols]
             .rename(columns={'breakdown_value': col_name})
@@ -269,7 +261,7 @@ def get_real_map_data(
     delay_duration=None,
     transfer_window=45,
     classifier_type="baseline",
-    time_of_day=None  # Ignored for now; TODO: implement time-of-day filtering
+    time_of_day=None
 ):
     """
     Get real map data from delay simulation CSV using destination geography.
@@ -374,7 +366,6 @@ def build_map_figure(region=None, time_of_day=None, delay_duration=None, transfe
     Behavior:
     - If no region/planning_area selected: show full Singapore with data areas colored, no-data areas grey
     - If region/planning_area selected: grey out unselected areas, highlight selection (with separate no-data handling)
-    - Time-of-day filtering: Currently ignored (TODO)
     """
     sg_geojson = load_planning_area_geojson()
     
