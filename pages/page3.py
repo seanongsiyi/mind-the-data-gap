@@ -38,7 +38,7 @@ csv_path_spec_info = os.path.join(current_dir, "..", "data", "spec_info.csv")
 df_spec_info = pd.read_csv(csv_path_spec_info)
 
 csv_path_regional = os.path.join(current_dir, "..", "data", "welfare_results_regional.csv")
-df_region = pd.read_csv((csv_path_regional))
+df_region = pd.read_csv(csv_path_regional)
 
 csv_path_welfare = os.path.join(current_dir, "..", "data", "welfare_results.csv")
 df_welfare = pd.read_csv(csv_path_welfare)
@@ -212,7 +212,7 @@ layout = html.Div([
             [
                 html.Div(["1. "] + [html.Strong("Input")] + [" your choices of patron, model specification and planning area."]),
                 html.Div(["2. "] + [html.Strong("Select a transfer window")] + [" to compare against the"] + [html.Strong(" current 45 minute window.")]),
-                html.Div(["3. "] + [html.Strong("Click compare")] + [" to simulate and compare different scenario."]),
+                html.Div(["3. "] + [html.Strong("Click compare")] + [" to simulate and compare between different scenarios."]),
                 html.Div(["4. Click the"] + [html.Strong(" Let's Go button")] + [" to start analysing!"]),
             ]
         ),
@@ -266,24 +266,47 @@ layout = html.Div([
                          style={"width": "180px", "fontSize": "13px"},
                      ),
                  ]),
-                html.Div([
-                    html.Button(
-                        "Let's Go!",
-                        id="sim-submit",
-                        n_clicks=0,
-                        style={
-                        "background": C["accent"],
-                        "color": "white",
-                        "border": "none",
-                        "padding": "10px 18px",
-                        "borderRadius": "6px",
-                        "fontSize": "13px",
-                        "fontWeight": "600",
-                        "cursor": "pointer",
-                        "marginTop": "18px",
-                        }
-                    )
-                ])
+
+                 html.Div([
+                    section_label("Transfer Window (minutes)"),
+                        dcc.Slider(
+                            id="sim-window-bench",
+                            min=20,
+                            max=55,
+                            step=5,
+                            value=45,
+                            marks={w: {"label": str(w), "style": {"fontSize": "12px", "fontFamily": FONT_MONO}} for w in WINDOW_OPTIONS},
+                            tooltip={"always_visible": False,"placement": "bottom"},
+                            #updatemode="drag",
+                        ),
+                    ], style={
+                        "width": "300px",
+                        "border": f"1px solid {C['border']}",
+                        "borderRadius": "8px",
+                        "padding": "14px 18px",
+                        #"display" : "block",
+                        "background": C["bg"],
+                        #"marginBottom": "20px", 
+                    }),
+
+                #html.Div([
+                #    html.Button(
+                #        "Let's Go!",
+                #        id="sim-submit",
+                #        n_clicks=0,
+                #        style={
+                #        "background": C["accent"],
+                #        "color": "white",
+                #        "border": "none",
+                #        "padding": "10px 18px",
+                #        "borderRadius": "6px",
+                #        "fontSize": "13px",
+                #        "fontWeight": "600",
+                #        "cursor": "pointer",
+                 #       "marginTop": "18px",
+                #        }
+                #    )
+                #])
 
             ], style={
                 "display": "flex",
@@ -297,25 +320,27 @@ layout = html.Div([
             }),
 
             # slider 1
-            html.Div([
-                section_label("Transfer Window (minutes)"),
-                    dcc.Slider(
-                        id="sim-window-bench",
-                        min=20,
-                        max=55,
-                        step=5,
-                        value=45,
-                        marks={w: {"label": str(w), "style": {"fontSize": "12px", "fontFamily": FONT_MONO}} for w in WINDOW_OPTIONS},
-                        tooltip={"placement": "bottom"},
-                        updatemode="drag",
-                    ),
-                ], style={
-                    "padding": "14px 18px",
-                    "background": C["bg"],
-                    "borderRadius": "6px",
-                    "border": f"1px solid {C['border']}",
-                    "marginBottom": "20px", 
-                }),
+            #html.Div([
+            #    section_label("Transfer Window (minutes)"),
+            #        dcc.Slider(
+            #            id="sim-window-bench",
+            #            min=20,
+            #            max=55,
+            #            step=5,
+            #            value=45,
+            #            marks={w: {"label": str(w), "style": {"fontSize": "12px", "fontFamily": FONT_MONO}} for w in WINDOW_OPTIONS},
+            #            tooltip={"always_visible": False,"placement": "bottom"},
+            #            #updatemode="drag",
+            #        ),
+            #    ], style={
+            #        "width": "300px",
+            #        "border": f"1px solid {C['border']}",
+            #        "borderRadius": "8px",
+            #        "padding": "14px 18px",
+            #        #"display" : "block",
+            #        "background": C["bg"],
+            #        #"marginBottom": "20px", 
+            #    }),
 
             # -- compare checkbox --     
             html.Div([
@@ -362,17 +387,7 @@ layout = html.Div([
                          style={"width": "180px", "fontSize": "13px"},
                      ),
                  ]),
-                ], style={
-                "display": "flex",
-                "gap": "32px",
-                "flexWrap": "wrap",
-                "padding": "14px 18px",
-                "background": C["bg"],
-                "borderRadius": "6px",
-                "border": f"1px solid {C['border']}",
-                "marginBottom": "20px",
-                }),
-                html.Div([
+                 html.Div([
                     section_label("Transfer Window (minutes)"),
                         dcc.Slider(
                             id="sim-window-hypo",
@@ -385,14 +400,63 @@ layout = html.Div([
                             updatemode="drag",
                         ),
                     ], style={
+                        "width": "290px",
                         "padding": "14px 18px",
                         "background": C["bg"],
                         "borderRadius": "6px",
                         "border": f"1px solid {C['border']}",
                         "marginBottom": "20px", 
-                })
+                }),
+                ], style={
+                "display": "flex",
+                "gap": "32px",
+                "flexWrap": "wrap",
+                "padding": "14px 18px",
+                "background": C["bg"],
+                "borderRadius": "6px",
+                "border": f"1px solid {C['border']}",
+                "marginBottom": "20px",
+                }),
+                #html.Div([
+                #    section_label("Transfer Window (minutes)"),
+                #        dcc.Slider(
+                ##            id="sim-window-hypo",
+                #            min=20,
+                #            max=55,
+                #            step=5,
+                #            value=45,
+                #            marks={w: {"label": str(w), "style": {"fontSize": "12px", "fontFamily": FONT_MONO}} for w in WINDOW_OPTIONS},
+                #            tooltip={"placement": "bottom"},
+                #            updatemode="drag",
+                #        ),
+                #    ], style={
+                #        "width": "300px",
+                #        "padding": "14px 18px",
+                #        "background": C["bg"],
+                #        "borderRadius": "6px",
+                #        "border": f"1px solid {C['border']}",
+                #        "marginBottom": "20px", 
+                #})
             ], style={"display": "none", "padding": "20px", "background": C["accent_soft"], "borderRadius": "8px", "marginBottom": "20px"}),
-           
+           html.Div([
+                    html.Button(
+                        "Let's Go!",
+                        id="sim-submit",
+                        n_clicks=0,
+                        style={
+                        "background": C["accent"],
+                        "color": "white",
+                        "border": "none",
+                        "padding": "10px 18px",
+                        "borderRadius": "6px",
+                        "fontSize": "13px",
+                        "fontWeight": "600",
+                        "cursor": "pointer",
+                        "marginTop": "18px",
+                        }
+                    )
+                ]),
+
             
             # ── Output row (All three columns inside ONE flex container) ──\
             html.Div(id="simulation-output-wrapper", style={"marginTop": "20px"}),
@@ -406,6 +470,7 @@ layout = html.Div([
                 "maxWidth": "1100px",
                 "margin": "0 auto",
             }),
+            
 
 
 # ── Callback ───────────────────────────────────
@@ -629,8 +694,8 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
         df_region_filtered = df_region[(df_region['spec'] == spec) & (df_region['window_mins'] == bench)]
         if patron != 'Overall':
             df_region_filtered = df_region_filtered[df_region_filtered['patron'] == patron]
-        if region != "All regions":
-            df_region_filtered = df_region_filtered[df_region_filtered['region_value']==region]
+        if region != "All Planning Areas":
+            df_region_filtered = df_region_filtered[df_region_filtered['region_value'].str.lower()==region.lower()]
         wrongly_split = df_region_filtered['wrongly_split_n'].sum()
         wrongly_merged = df_region_filtered['wrongly_merged_n'].sum()
         region_fig = go.Figure(data=[
