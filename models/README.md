@@ -2,7 +2,7 @@
 - `classifier.ipynb` - rule-based classification (binary, temporal, spacial) + internal validity checks + walking distance calculation
 - `classifier_lenient.ipynb` - classifier with looser thresholds (more merges)
 - `classifier_strict.ipynb` - classifier with tighter thresholds (more splits)
-- `delay_simulation.ipynb` - adjusting waiting time to see if transfer window needs to be adjusted
+- `delay_simulation.ipynb` - adjusting waiting time and transfer windows to see if transfer window needs to be adjusted based on wrongly merge and split rates
 - `functions_test.ipynb` - notebook to test the functions that could be used by front-end
 - `functions.py` - script containing all functions to be imported by front-end
 - `hexbin_density_map.ipynb` - geographical mapping of tap-in, tap-out data

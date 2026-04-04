@@ -47,12 +47,12 @@ df_welfare = pd.read_csv(csv_path_welfare)
 unique_specs = df['spec'].unique()
 unique_patron = df['patron'].unique()
 sorted_regions = sorted(df_region['region_value'].unique())
-unique_region =  ['All regions'] + sorted_regions
+unique_region =  ['All Planning Areas'] + sorted_regions
 unique_description = df_spec_info['description']
 
 SPEC_OPTIONS = [{'label': str(val).capitalize(), 'value': val} for val in unique_specs]
 PATRON_OPTIONS = [{'label': str(val).capitalize(), 'value': val} for val in unique_patron]
-REGION_OPTIONS = [{'label': str(val).capitalize(),'value':val} for val in unique_region]
+REGION_OPTIONS = [{'label': str(val).title(), 'value': val} for val in unique_region]
 WINDOW_OPTIONS = list(range(20, 56, 5))  # 20,25,...,55
 MODEL_DESCRIPTIONS = df_spec_info.set_index('spec')['description'].to_dict()
 
@@ -210,7 +210,7 @@ layout = html.Div([
     info_box(
             "How to use this simulator",
             [
-                html.Div(["1. "] + [html.Strong("Input")] + [" your choices of patron, model specification and region."]),
+                html.Div(["1. "] + [html.Strong("Input")] + [" your choices of patron, model specification and planning area."]),
                 html.Div(["2. "] + [html.Strong("Select a transfer window")] + [" to compare against the"] + [html.Strong(" current 45 minute window.")]),
                 html.Div(["3. "] + [html.Strong("Click compare")] + [" to simulate and compare different scenario."]),
                 html.Div(["4. Click the"] + [html.Strong(" Let's Go button")] + [" to start analysing!"]),
@@ -258,7 +258,7 @@ layout = html.Div([
                 ]),
                 
                 html.Div([
-                     section_label("Region"),
+                     section_label("Planning Area"),
                      dcc.Dropdown(
                          id="sim-region",
                          options=REGION_OPTIONS,
@@ -354,7 +354,7 @@ layout = html.Div([
                 ]),
                 
                 html.Div([
-                     section_label("Region"),
+                     section_label("Planning Area"),
                      dcc.Dropdown(
                          id="sim-region-B",
                          options=REGION_OPTIONS,
