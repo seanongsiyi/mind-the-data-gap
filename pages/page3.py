@@ -761,14 +761,14 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
             }),
             
             # Section 1: Correctly Merged
-            section_label("Correctly Merged Impact"),
+            section_label("Change in Correctly Merged"),
             dcc.Graph(figure=fig_pie, config={"displayModeBar": False}),
             stats_layout,
             
             html.Hr(style={"margin": "25px 0", "borderTop": f"1px solid {C['border']}"}),
             
             # Section 2: Wrongly Merged
-            section_label("Wrongly Merged Impact"),
+            section_label("Change in Wrongly Merged"),
             dcc.Graph(figure=fig_pie_2, config={"displayModeBar": False}),
             stats_layout_2,
 
