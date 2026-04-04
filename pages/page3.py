@@ -102,6 +102,32 @@ def card(title, subtitle, children):
         "marginBottom": "20px",
     })
 
+def tradeoff_kpi_card(title, count_value, accent_color):
+    return html.Div([
+        html.Div(title, style={
+            "fontSize": "14px",
+            "fontWeight": "600",
+            "color": C["secondary"],
+            "fontFamily": FONT_SANS,
+            "marginBottom": "6px",
+        }),
+
+        html.Div(count_value, style={
+            "fontSize": "42px",
+            "fontWeight": "800",
+            "color": accent_color,
+            "fontFamily": FONT_SANS,
+            "lineHeight": "1.1",
+        }),
+    ], style={
+        "background": C["bg"],
+        "border": f"1px solid {C['border']}",
+        "borderRadius": "10px",
+        "padding": "24px 20px",
+        "marginBottom": "10px",
+        "boxShadow": "0 2px 4px rgba(0,0,0,0.05)",
+    })
+
 def info_box(title, children):
     return html.Div([
         html.Div(title, style={
@@ -217,15 +243,37 @@ layout = html.Div([
             ]
         ),
 
-    info_box(
-            "Specifications Definitions",
-            [
-                html.Div([html.Strong("Baseline: ")] + ["This specification uses waiting time allowances broadly informed by LTA's Bus Contracting Model service benchmarks, representing expected bus headways under typical operating conditions. For bus-involved connections (bus→bus or train→bus), a commuter is allowed up to 10 minutes of residual waiting time during peak hours and 15 minutes off-peak, on top of their predicted walking time. For connections ending at a train station (bus→train or train→train), the allowance is the predicted walking time plus a fixed 5-minute buffer."]),
-                html.Div([html.Strong("Lenient: ")] + ["A more generous specification that accommodates longer bus waiting times, such as those experienced on lower-frequency routes or during off-schedule operations. Bus connection allowances are raised to 12 minutes peak and 18 minutes off-peak. The train entry buffer stays at 5 minutes. Compared to Baseline, this spec classifies more ride pairs as transfers, producing a lower count of wrongly split journeys and a higher count of wrongly merged ones."]),
-                html.Div([html.Strong("Strict: ")] + ["A tighter specification that reflects shorter bus waiting times, more representative of high-frequency corridors or periods where buses run closer to schedule. Bus connection allowances are reduced to 8 minutes peak and 12 minutes off-peak. The train entry buffer remains at 5 minutes. Compared to Baseline, this spec classifies fewer ride pairs as transfers, producing a higher count of wrongly split journeys and a lower count of wrongly merged ones."]),
-            ]
-        ),
 
+    html.Details([
+    # This is the visible text the user clicks on
+    html.Summary("Click to view Specifications Definitions", style={
+        "fontSize": "13px",
+        "fontWeight": "600",
+        "color": C["accent"],
+        "cursor": "pointer",
+        "fontFamily": FONT_SANS,
+        "marginBottom": "10px",
+        "padding": "10px",
+        "background": C["accent_soft"],
+        "borderRadius": "6px",
+        "border": f"1px solid {C['border']}"
+    }),
+    
+    # This is the content that starts hidden
+    info_box(
+        "Specifications Definitions",
+        [
+            html.Div([html.Strong("Baseline: ")] + ["This specification uses waiting time allowances broadly informed by LTA's Bus Contracting Model service benchmarks, representing expected bus headways under typical operating conditions. For bus-involved connections (bus→bus or train→bus), a commuter is allowed up to 10 minutes of residual waiting time during peak hours and 15 minutes off-peak, on top of their predicted walking time. For connections ending at a train station (bus→train or train→train), the allowance is the predicted walking time plus a fixed 5-minute buffer."]),
+            html.Div([html.Strong("Lenient: ")] + ["A more generous specification that accommodates longer bus waiting times, such as those experienced on lower-frequency routes or during off-schedule operations. Bus connection allowances are raised to 12 minutes peak and 18 minutes off-peak. The train entry buffer stays at 5 minutes. Compared to Baseline, this spec classifies more ride pairs as transfers, producing a lower count of wrongly split journeys and a higher count of wrongly merged ones."]),
+            html.Div([html.Strong("Strict: ")] + ["A tighter specification that reflects shorter bus waiting times, more representative of high-frequency corridors or periods where buses run closer to schedule. Bus connection allowances are reduced to 8 minutes peak and 12 minutes off-peak. The train entry buffer remains at 5 minutes. Compared to Baseline, this spec classifies fewer ride pairs as transfers, producing a higher count of wrongly split journeys and a lower count of wrongly merged ones."]),
+            ]
+    ),
+    ], style={
+        "marginBottom": "28px",
+        "borderRadius": "8px",
+        "overflow": "hidden"
+    }),
+    
     # ── Main card ─────────────────────────────────────
     card(
         "Policy Input Controls",
@@ -284,29 +332,8 @@ layout = html.Div([
                         "border": f"1px solid {C['border']}",
                         "borderRadius": "8px",
                         "padding": "14px 18px",
-                        #"display" : "block",
                         "background": C["bg"],
-                        #"marginBottom": "20px", 
                     }),
-
-                #html.Div([
-                #    html.Button(
-                #        "Let's Go!",
-                #        id="sim-submit",
-                #        n_clicks=0,
-                #        style={
-                #        "background": C["accent"],
-                #        "color": "white",
-                #        "border": "none",
-                #        "padding": "10px 18px",
-                #        "borderRadius": "6px",
-                #        "fontSize": "13px",
-                #        "fontWeight": "600",
-                #        "cursor": "pointer",
-                 #       "marginTop": "18px",
-                #        }
-                #    )
-                #])
 
             ], style={
                 "display": "flex",
@@ -318,29 +345,6 @@ layout = html.Div([
                 "border": f"1px solid {C['border']}",
                 "marginBottom": "20px",
             }),
-
-            # slider 1
-            #html.Div([
-            #    section_label("Transfer Window (minutes)"),
-            #        dcc.Slider(
-            #            id="sim-window-bench",
-            #            min=20,
-            #            max=55,
-            #            step=5,
-            #            value=45,
-            #            marks={w: {"label": str(w), "style": {"fontSize": "12px", "fontFamily": FONT_MONO}} for w in WINDOW_OPTIONS},
-            #            tooltip={"always_visible": False,"placement": "bottom"},
-            #            #updatemode="drag",
-            #        ),
-            #    ], style={
-            #        "width": "300px",
-            #        "border": f"1px solid {C['border']}",
-            #        "borderRadius": "8px",
-            #        "padding": "14px 18px",
-            #        #"display" : "block",
-            #        "background": C["bg"],
-            #        #"marginBottom": "20px", 
-            #    }),
 
             # -- compare checkbox --     
             html.Div([
@@ -417,26 +421,7 @@ layout = html.Div([
                 "border": f"1px solid {C['border']}",
                 "marginBottom": "20px",
                 }),
-                #html.Div([
-                #    section_label("Transfer Window (minutes)"),
-                #        dcc.Slider(
-                ##            id="sim-window-hypo",
-                #            min=20,
-                #            max=55,
-                #            step=5,
-                #            value=45,
-                #            marks={w: {"label": str(w), "style": {"fontSize": "12px", "fontFamily": FONT_MONO}} for w in WINDOW_OPTIONS},
-                #            tooltip={"placement": "bottom"},
-                #            updatemode="drag",
-                #        ),
-                #    ], style={
-                #        "width": "300px",
-                #        "padding": "14px 18px",
-                #        "background": C["bg"],
-                #        "borderRadius": "6px",
-                #        "border": f"1px solid {C['border']}",
-                #        "marginBottom": "20px", 
-                #})
+               
             ], style={"display": "none", "padding": "20px", "background": C["accent_soft"], "borderRadius": "8px", "marginBottom": "20px"}),
            html.Div([
                     html.Button(
@@ -460,8 +445,8 @@ layout = html.Div([
             
             # ── Output row (All three columns inside ONE flex container) ──\
             html.Div(id="simulation-output-wrapper", style={"marginTop": "20px"}),
-                ] # Closes card() children list
-                ), # Closes card() component
+                ] 
+                ), 
             ], style={
                 "background": C["bg"],
                 "minHeight": "100vh",
@@ -536,10 +521,11 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
             hovermode="x unified"
         )
     def render_analysis(patron, spec, region, bench, title_label):
+        benefit_description = html.Div() 
+        cost_description = html.Div()
         # --- 1. Initialize variables with defaults ---
         fig_pie = go.Figure()
         fig_pie_2 = go.Figure()
-        region_fig = go.Figure()
         char_img = ""
         description_text = ""
 
@@ -557,20 +543,7 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
         img_path = CHAR_MAP.get(patron, CHAR_MAP["Overall"])
         char_img = html.Img(src=img_path, style={"width": "150px", "height": "180px", "objectFit": "contain"})
 
-        # --- 3. Description Logic ---
-        #MODEL_DESCRIPTIONS = df_spec_info.set_index('spec')['description'].to_dict()
-        description_text = MODEL_DESCRIPTIONS.get(spec, "No description available.")
-
-        # --- 4. Chart Logic (Where 'fig' is defined) ---
-        #filtered_df = df[(df['patron'] == patron) & (df['spec'] == spec)]
-        #if bench > 45:
-        #    pie_df = filtered_df[(filtered_df['window_to'] <= bench) & (filtered_df['window_from'] >= 45)]
-        #    total_benefit = pie_df['marginal_cost_n'].sum()
-        #    total_cost = pie_df['marginal_benefit_n'].sum()
-        #else:
-        #    pie_df = filtered_df[(filtered_df['window_to'] >= bench) & (filtered_df['window_from'] <= 45)]
-        #    total_benefit = pie_df['marginal_benefit_n'].sum()
-        #    total_cost = pie_df['marginal_cost_n'].sum()
+        # --- 3. Chart Logic ---
         filtered_df = get_marginal_at_45(patron, spec,bench)
         total_benefit = filtered_df['marginal_benefit_n']
         total_cost = filtered_df['marginal_cost_n']
@@ -595,8 +568,21 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
                         textinfo='label+percent',
                         insidetextorientation='radial'
                     )])
+                    if total_benefit < 0:
+                        benefit_description = html.P(f"{abs(total_benefit):,.0f} fewer people will be correctly merged if the transfer window decreases from 45 to {bench} minutes. Among them, {abs(students_benefit):,.0f} are students, {abs(adults_benefit):,.0f} are adults and {abs(seniors_benefit):,.0f} are senior citizens.",
+                                                    style={
+                            "fontSize": "13px", 
+                            "color": C["secondary"],
+                            "marginTop": "10px",
+                            "lineHeight": "1.5"
+                        })
+                    else:
+                        benefit_description = html.P(f"{total_benefit:,.0f} more people will be correctly merged if the transfer window increases from 45 to {bench} minutes. Among them, {total_benefit:,.0f} are students, {abs(adults_benefit):,.0f} are adults and {abs(seniors_benefit):,.0f} are senior citizens.",
+                                                    style={"fontSize": "13px", "color": C["secondary"], "marginTop": "10px"})
+
                 else:
-                    fig_pie.add_annotation(text="No commuters correctly classified", showarrow=False, font_size=12)
+                    fig_pie.add_annotation(text="No changes", showarrow=False, font_size=12)
+                    benefit_description = html.P("No change in correctly merged journeys.", style={"fontSize": "13px", "color": C["secondary"], "marginTop": "10px"})
 
                 if total_cost != 0:
                     fig_pie_2 = go.Figure(data=[go.Pie(
@@ -607,27 +593,72 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
                         textinfo='label+percent',
                         insidetextorientation='radial'
                     )])
+                    if total_cost < 0:
+                        cost_description = html.P(f"{abs(total_cost):,.0f} less people will be wrongly merged if the transfer window decreases from 45 to {bench} minutes. Among them, {abs(students_cost):,.0f} are students, {abs(adults_cost):,.0f} are adults and {abs(seniors_cost):,.0f} are senior citizens.",
+                                                    style={
+                            "fontSize": "13px", 
+                            "color": C["secondary"],
+                            "marginTop": "10px",
+                            "lineHeight": "1.5"
+                        })
+                    else:
+                        cost_description = html.P(f"{total_cost:,.0f} more people will be wrongly merged if the transfer window increases from 45 to {bench} minutes. Among them, {abs(students_cost):,.0f} are students, {abs(adults_cost):,.0f} are adults and {abs(seniors_cost):,.0f} are senior citizens.", 
+                                                    style={"fontSize": "13px", "color": C["secondary"], "marginTop": "10px"})
+
                 else:
-                    fig_pie_2.add_annotation(text="No commuters wrongly classified", showarrow=False, font_size=12)
+                    fig_pie_2.add_annotation(text="No changes", showarrow=False, font_size=12)
+                    cost_description = html.P("No change in wrongly merged journeys.", style={"fontSize": "13px", "color": C["secondary"], "marginTop": "10px"})
 
             else:
+                if total_benefit > 0 or total_cost > 0:
+                    pie_col = C["accent"]
+                else:
+                    pie_col = C["accent_mid"]
                 fig_pie = go.Figure(data=[go.Pie(
-                    labels=['Correctly Classified'],
+                    labels=[f"{patron}"],
                     values=[abs(total_benefit)],
                     hole=.3, 
-                    marker_colors=[C["accent"], C["accent_mid"]],
-                    textinfo='label+percent',
+                    marker_colors=[pie_col],
+                    textinfo='label',
                     insidetextorientation='radial'
                 )])
 
                 fig_pie_2 = go.Figure(data=[go.Pie(
-                    labels=['Wrongly Classified'],
+                    labels=[f"{patron}"],
                     values=[abs(total_cost)],
                     hole=.3, 
-                    marker_colors=[C["accent"], C["accent_mid"]],
-                    textinfo='label+percent',
+                    marker_colors=[pie_col],
+                    textinfo='label',
                     insidetextorientation='radial'
                 )])
+                if total_benefit < 0:
+                    benefit_description = html.P(f"{abs(total_benefit):,.0f} fewer people will be correctly merged if the transfer window decreases from 45 to {bench} minutes.",
+                                                 style={
+                        "fontSize": "13px", 
+                        "color": C["secondary"],
+                        "marginTop": "10px",
+                        "lineHeight": "1.5"
+                    })
+                elif total_benefit > 0:
+                    benefit_description = html.P(f"{total_benefit:,.0f} more people will be correctly merged if the transfer window increases from 45 to {bench} minutes.", 
+                                                style={"fontSize": "13px", "color": C["secondary"], "marginTop": "10px"})
+                else:
+                    benefit_description = html.P("No change in correctly merged journeys.", style={"fontSize": "13px", "color": C["secondary"], "marginTop": "10px"})
+
+                if total_cost < 0:
+                    cost_description = html.P(f"{abs(total_cost):,.0f} less people will be wrongly merged if the transfer window decreases from 45 to {bench} minutes.",
+                                                 style={
+                        "fontSize": "13px", 
+                        "color": C["secondary"],
+                        "marginTop": "10px",
+                        "lineHeight": "1.5"
+                    })
+                elif total_cost > 0:
+                    cost_description = html.P(f"{total_cost:,.0f} more people will be wrongly merged if the transfer window increases from 45 to {bench} minutes.", 
+                                                style={"fontSize": "13px", "color": C["secondary"], "marginTop": "10px"})
+                else:
+                    cost_description = html.P("No change in wrongly merged journeys.", style={"fontSize": "13px", "color": C["secondary"], "marginTop": "10px"})
+
 
             fig_pie.update_layout(
                 height=240,
@@ -651,9 +682,11 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
                 margin=dict(l=20, r=20, t=20, b=20),
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
-                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False), # Hide axis lines
+                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False), 
                 yaxis=dict(showgrid=False, zeroline=False, showticklabels=False)
             )
+            benefit_description = html.P("No change in correctly merged journeys.", style={"fontSize": "13px", "color": C["secondary"], "marginTop": "10px"})
+
             fig_pie_2 = go.Figure()
             fig_pie_2.add_annotation(text="No data for this range", showarrow=False, font_size=12)
             fig_pie_2.update_layout(
@@ -664,6 +697,8 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
                 xaxis=dict(showgrid=False, zeroline=False, showticklabels=False), 
                 yaxis=dict(showgrid=False, zeroline=False, showticklabels=False)
             )
+            cost_description = html.P("No change in wrongly merged journeys.", style={"fontSize": "13px", "color": C["secondary"], "marginTop": "10px"})
+
         
         if patron == 'Overall' and ((total_benefit != 0) or (total_cost != 0)):
                 stats_layout = html.Div([
@@ -698,45 +733,29 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
             df_region_filtered = df_region_filtered[df_region_filtered['region_value'].str.lower()==region.lower()]
         wrongly_split = df_region_filtered['wrongly_split_n'].sum()
         wrongly_merged = df_region_filtered['wrongly_merged_n'].sum()
-        region_fig = go.Figure(data=[
-            go.Bar(
-                name='Wrongly Split',
-                x=['Wrongly Split'],
-                y=[wrongly_split],
-                text=[f"<b>{wrongly_split:,.0f}</b>"], 
-                textposition='auto',
-                marker_color="#2563eb"  
+        region_data = html.Div([
+            tradeoff_kpi_card(
+                "Wrongly Split",
+                f"{wrongly_split:,.0f}",
+                 "#dc2626",
             ),
-            go.Bar(
-                name='Wrongly Merged',
-                x=['Wrongly Merged'],
-                y=[wrongly_merged],
-                text=[f"<b>{wrongly_merged:,.0f}</b>"],
-                textposition='auto',
-                marker_color="#93c5fd"  
+            tradeoff_kpi_card(
+                "Wrongly Merged",
+                f"{wrongly_merged:,.0f}",
+                "#f59e0b",
             )
-        ])
+        ], style={
+                "display": "flex",
+                "justifyContent": "center",      
+                "gap": "24px",          
+                "width": "100%",        
+                "marginBottom": "20px"  
+            })
 
-        region_fig.update_layout(
-            barmode='group', 
-            title="Analysis of Classification Errors",
-            font=dict(family=FONT_SANS, size=12),
-            margin=dict(l=40, r=20, t=40, b=40),
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            legend=dict(orientation="h", yanchor="bottom", y=0.95, xanchor="right", x=1)
-        )
-
-       
 
 
         # Creating text for analysis
-        #base_desc = MODEL_DESCRIPTIONS.get(spec, "No description available.")
         description_text = html.Div([
-            # Main Description from CSV
-            #html.P(base_desc, style={"marginBottom": "12px", "fontWeight": "500"}),
-            
-            # Add dynamic "Policy Summary" text
             html.Div([
                 html.P([
                     html.B("Impacted Commuters: "), 
@@ -744,7 +763,8 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
                 ]),
 
                 html.P([
-                    f"By looking at the analysis, changing the transfer window from 45 minutes to {bench} minutes will result in {total_benefit:,.0f} change in correctly classified commuters and {total_cost:,.0f} change in wrongly classified commuters."
+                    f"By looking at the analysis, changing the transfer window from 45 minutes to {bench} minutes will result in {total_benefit:,.0f} change in correctly merged journeys and {total_cost:,.0f} change in wrongly merged journeys.",
+                    f" At the {bench} minute transfer window, using {spec} model specification, there will be {wrongly_split} wrongly split journeys and {wrongly_merged} wrongly merged journeys in {region}.",
                 ])
             ], style={
                 "fontSize": "12px", 
@@ -764,6 +784,7 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
             section_label("Change in Correctly Merged"),
             dcc.Graph(figure=fig_pie, config={"displayModeBar": False}),
             stats_layout,
+            benefit_description,
             
             html.Hr(style={"margin": "25px 0", "borderTop": f"1px solid {C['border']}"}),
             
@@ -771,12 +792,13 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
             section_label("Change in Wrongly Merged"),
             dcc.Graph(figure=fig_pie_2, config={"displayModeBar": False}),
             stats_layout_2,
+            cost_description,
 
             html.Hr(style={"margin": "25px 0", "borderTop": f"1px solid {C['border']}"}),
             
             # Section 3: Regional Error Analysis
-            section_label("Regional Error Distribution"),
-            dcc.Graph(figure=region_fig, config={"displayModeBar": False}),
+            section_label(f"Regional Error Distribution for {region}"),
+            html.Div([region_data]),
 
             # Section 4: Character Profile & Text
             html.Div([
@@ -808,7 +830,6 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
     else:
         # Single view
         output_view = render_analysis(p_a, s_a, r_a, b_a, "Analysis")
-    #return fig_pie, stats_layout, char_img, fig_pie_2, stats_layout_2,region_fig, description_text
     return html.Div([output_view,
                      html.Div([
                         html.Div([
@@ -829,8 +850,7 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
 
                             html.P([
                                 "Analysing the elbow plot, most of the patron groups experience the sharpest change at the 25 minute window", html.B(" except for the elderly.")," For the elderly, the optimal window would be at ",
-                                html.B("30 Minutes "), " which is still well below the current window of 45 minutes. This suggests that the existing transfer window is sufficiently forgiving and you might consider ",
-                                html.B("decreasing "), "the transfer window."
+                                html.B("30 Minutes "), " which is still well below the current window of 45 minutes. This suggests that the existing transfer window of 45 minutes is sufficiently forgiving."
                                 ], style={"fontSize": "13px", "lineHeight": "1.6", "color": C["secondary"], "marginTop": "10px"}),
 
                         ], style={"flex": "1", "padding": "10px", "borderLeft": f"1px solid {C['border']}"})
