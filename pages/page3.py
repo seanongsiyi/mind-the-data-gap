@@ -217,6 +217,15 @@ layout = html.Div([
             ]
         ),
 
+    info_box(
+            "Specifications Definitions",
+            [
+                html.Div([html.Strong("Baseline: ")] + ["This specification uses waiting time allowances broadly informed by LTA's Bus Contracting Model service benchmarks, representing expected bus headways under typical operating conditions. For bus-involved connections (bus→bus or train→bus), a commuter is allowed up to 10 minutes of residual waiting time during peak hours and 15 minutes off-peak, on top of their predicted walking time. For connections ending at a train station (bus→train or train→train), the allowance is the predicted walking time plus a fixed 5-minute buffer."]),
+                html.Div([html.Strong("Lenient: ")] + ["A more generous specification that accommodates longer bus waiting times, such as those experienced on lower-frequency routes or during off-schedule operations. Bus connection allowances are raised to 12 minutes peak and 18 minutes off-peak. The train entry buffer stays at 5 minutes. Compared to Baseline, this spec classifies more ride pairs as transfers, producing a lower count of wrongly split journeys and a higher count of wrongly merged ones."]),
+                html.Div([html.Strong("Strict: ")] + ["A tighter specification that reflects shorter bus waiting times, more representative of high-frequency corridors or periods where buses run closer to schedule. Bus connection allowances are reduced to 8 minutes peak and 12 minutes off-peak. The train entry buffer remains at 5 minutes. Compared to Baseline, this spec classifies fewer ride pairs as transfers, producing a higher count of wrongly split journeys and a lower count of wrongly merged ones."]),
+            ]
+        ),
+
     # ── Main card ─────────────────────────────────────
     card(
         "Policy Input Controls",
@@ -484,7 +493,7 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
         char_img = html.Img(src=img_path, style={"width": "150px", "height": "180px", "objectFit": "contain"})
 
         # --- 3. Description Logic ---
-        MODEL_DESCRIPTIONS = df_spec_info.set_index('spec')['description'].to_dict()
+        #MODEL_DESCRIPTIONS = df_spec_info.set_index('spec')['description'].to_dict()
         description_text = MODEL_DESCRIPTIONS.get(spec, "No description available.")
 
         # --- 4. Chart Logic (Where 'fig' is defined) ---
@@ -657,10 +666,10 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
 
 
         # Creating text for analysis
-        base_desc = MODEL_DESCRIPTIONS.get(spec, "No description available.")
+        #base_desc = MODEL_DESCRIPTIONS.get(spec, "No description available.")
         description_text = html.Div([
             # Main Description from CSV
-            html.P(base_desc, style={"marginBottom": "12px", "fontWeight": "500"}),
+            #html.P(base_desc, style={"marginBottom": "12px", "fontWeight": "500"}),
             
             # Add dynamic "Policy Summary" text
             html.Div([
@@ -674,7 +683,7 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
                 ])
             ], style={
                 "fontSize": "12px", 
-                "padding": "10px", 
+                "padding": "12px", 
                 "background": C["accent_soft"], 
                 "borderRadius": "6px",
                 "borderLeft": f"4px solid {C['accent']}"
@@ -707,8 +716,9 @@ def update_simulation(n_clicks,compare_on, p_a, s_a, r_a, b_a, p_b, s_b, r_b, h_
             # Section 4: Character Profile & Text
             html.Div([
                 html.Div(char_img, style={"flex": "0 0 150px"}),
-                html.Div(description_text, style={"flex": "1", "marginLeft": "15px"})
-            ], style={"display": "flex", "alignItems": "flex-start", "marginTop": "20px"}),
+                html.Div(description_text, style={"flex": "1", "marginLeft": "15px", "display": "flex",
+                "justifyContent": "center"})
+            ], style={"display": "flex", "alignItems": "center", "marginTop": "20px"}),
 
 
 
