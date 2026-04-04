@@ -606,12 +606,12 @@ def build_patron_chart(delay_duration=None, transfer_window=45):
         return go.Figure().add_annotation(text="No patron data available")
     
     metrics = [
-        'Correctly merged',
-        'Wrongly merged',
         'Correctly split',
         'Wrongly split',
+        'Correctly merged',
+        'Wrongly merged',
     ]
-    colors = ["#10b981", "#f59e0b", "#0ea5e9", "#dc2626"]
+    colors = ["#0ea5e9", "#dc2626", "#10b981", "#f59e0b"]
     
     fig = go.Figure()
     
@@ -1209,18 +1209,6 @@ def update_figures(region, planning_area, time_of_day, delay_duration, transfer_
 
         tradeoff_kpis = html.Div([
             tradeoff_kpi_card(
-                "Correctly merged",
-                f"{correctly_kept_n:,}",
-                f"{correctly_kept_pct:.2f}% of genuine transfers",
-                "#10b981",
-            ),
-            tradeoff_kpi_card(
-                "Wrongly merged",
-                f"{wrongly_merged_n:,}",
-                f"{wrongly_merged_pct:.2f}% of separate journeys",
-                "#f59e0b",
-            ),
-            tradeoff_kpi_card(
                 "Correctly split",
                 f"{correctly_split_n:,}",
                 f"{correctly_split_pct:.2f}% of separate journeys",
@@ -1231,6 +1219,18 @@ def update_figures(region, planning_area, time_of_day, delay_duration, transfer_
                 f"{wrongly_split_n:,}",
                 f"{wrongly_split_pct:.2f}% of genuine transfers",
                 "#dc2626",
+            ),
+            tradeoff_kpi_card(
+                "Correctly merged",
+                f"{correctly_kept_n:,}",
+                f"{correctly_kept_pct:.2f}% of genuine transfers",
+                "#10b981",
+            ),
+            tradeoff_kpi_card(
+                "Wrongly merged",
+                f"{wrongly_merged_n:,}",
+                f"{wrongly_merged_pct:.2f}% of separate journeys",
+                "#f59e0b",
             ),
             ])
 
